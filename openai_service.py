@@ -143,6 +143,11 @@ def analyze_project_records(record_text):
     if not record_text or not record_text.strip():
         return "Insufficient project records for analysis."
     
+    # Truncate text if it's too long to avoid API timeout
+    max_chars = 15000
+    if len(record_text) > max_chars:
+        record_text = record_text[:max_chars] + "... [text truncated for analysis]"
+    
     try:
         prompt = f"""
         Using the project daily logs, emails, and baseline schedules provided, validate whether the contractor has entitlement for delay or disruption claims.
@@ -155,22 +160,31 @@ def analyze_project_records(record_text):
         4. Clear causation links between events and impacts
         
         Provide a well-structured, professional analysis of approximately 1000 words.
+        If the provided records seem insufficient, clearly state what additional information would be needed.
         
         Project Records:
         {record_text}
         """
         
+        # Set timeout to avoid hanging requests
         response = openai.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.3
+            temperature=0.3,
+            timeout=60  # 60-second timeout
         )
         
+        if not response or not hasattr(response, 'choices') or not response.choices:
+            return "Analysis failed: No valid response received from analysis engine."
+            
         return response.choices[0].message.content
         
     except Exception as e:
         print(f"Error analyzing project records: {str(e)}")
-        return "Error analyzing project records. Please try again."
+        error_msg = str(e)
+        if "timeout" in error_msg.lower():
+            return "Analysis timed out. The project records may be too complex or voluminous. Try uploading more focused records or contact support."
+        return f"Error analyzing project records: {error_msg[:100]}... Please try again later."
 
 def assess_quantum(record_text):
     """
@@ -189,6 +203,11 @@ def assess_quantum(record_text):
             "calculation_method": "No project records available for quantum assessment."
         }
     
+    # Truncate text if it's too long to avoid API timeout
+    max_chars = 15000
+    if len(record_text) > max_chars:
+        record_text = record_text[:max_chars] + "... [text truncated for analysis]"
+    
     try:
         prompt = f"""
         Using change orders, invoices, and project records, estimate total financial quantum of claims and time impact delays.
@@ -198,6 +217,8 @@ def assess_quantum(record_text):
         - time_impact_days: Number of days (integer)
         - calculation_method: Explanation of how you calculated these values
         
+        If the provided records are insufficient, use reasonable assumptions but clearly state them.
+        
         Project Records:
         {record_text}
         """
@@ -206,7 +227,8 @@ def assess_quantum(record_text):
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            temperature=0.2
+            temperature=0.2,
+            timeout=60  # 60-second timeout
         )
         
         result = json.loads(response.choices[0].message.content)
@@ -216,19 +238,37 @@ def assess_quantum(record_text):
             result["cost_estimate"] = 0.0
         
         if not isinstance(result.get("time_impact_days"), int):
-            result["time_impact_days"] = 0
+            try:
+                # Try to convert to integer if possible
+                result["time_impact_days"] = int(float(result.get("time_impact_days", 0)))
+            except:
+                result["time_impact_days"] = 0
             
         if not isinstance(result.get("calculation_method"), str):
             result["calculation_method"] = "Method not provided"
             
         return result
         
-    except Exception as e:
-        print(f"Error assessing quantum: {str(e)}")
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error in quantum assessment: {str(e)}")
         return {
             "cost_estimate": 0.0,
             "time_impact_days": 0,
-            "calculation_method": "Error assessing quantum. Please try again."
+            "calculation_method": "Error parsing quantum assessment results. The analysis output was not in the expected format."
+        }
+    except Exception as e:
+        print(f"Error assessing quantum: {str(e)}")
+        error_msg = str(e)
+        if "timeout" in error_msg.lower():
+            return {
+                "cost_estimate": 0.0,
+                "time_impact_days": 0,
+                "calculation_method": "Analysis timed out. The project records may be too complex. Try uploading more focused records."
+            }
+        return {
+            "cost_estimate": 0.0,
+            "time_impact_days": 0,
+            "calculation_method": f"Error assessing quantum: {error_msg[:100]}... Please try again."
         }
 
 def evaluate_counterclaims(record_text):
@@ -244,6 +284,11 @@ def evaluate_counterclaims(record_text):
     if not record_text or not record_text.strip():
         return "Insufficient project records for counterclaim analysis."
     
+    # Truncate text if it's too long to avoid API timeout
+    max_chars = 15000
+    if len(record_text) > max_chars:
+        record_text = record_text[:max_chars] + "... [text truncated for analysis]"
+    
     try:
         prompt = f"""
         Based on owner's correspondence and project logs, list possible counterclaims and defenses.
@@ -255,6 +300,7 @@ def evaluate_counterclaims(record_text):
         4. Other potential defenses
         
         Provide a well-structured, professional analysis of approximately 800 words, organized by counterclaim type.
+        If the provided records appear insufficient, clearly state what additional information would be helpful.
         
         Project Records:
         {record_text}
@@ -263,14 +309,21 @@ def evaluate_counterclaims(record_text):
         response = openai.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.3
+            temperature=0.3,
+            timeout=60  # 60-second timeout
         )
         
+        if not response or not hasattr(response, 'choices') or not response.choices:
+            return "Analysis failed: No valid response received from analysis engine."
+            
         return response.choices[0].message.content
         
     except Exception as e:
         print(f"Error evaluating counterclaims: {str(e)}")
-        return "Error evaluating counterclaims. Please try again."
+        error_msg = str(e)
+        if "timeout" in error_msg.lower():
+            return "Analysis timed out. The project records may be too complex or voluminous. Try uploading more focused records or contact support."
+        return f"Error evaluating counterclaims: {error_msg[:100]}... Please try again later."
 
 def suggest_dispute_strategy(analysis_text):
     """
@@ -284,6 +337,11 @@ def suggest_dispute_strategy(analysis_text):
     """
     if not analysis_text or not analysis_text.strip():
         return "Insufficient analysis for dispute strategy recommendation."
+    
+    # Truncate text if it's too long
+    max_chars = 15000
+    if len(analysis_text) > max_chars:
+        analysis_text = analysis_text[:max_chars] + "... [text truncated for analysis]"
     
     try:
         prompt = f"""
@@ -304,14 +362,21 @@ def suggest_dispute_strategy(analysis_text):
         response = openai.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.3
+            temperature=0.3,
+            timeout=60  # 60-second timeout
         )
         
+        if not response or not hasattr(response, 'choices') or not response.choices:
+            return "Analysis failed: No valid response received from analysis engine."
+            
         return response.choices[0].message.content
         
     except Exception as e:
         print(f"Error suggesting dispute strategy: {str(e)}")
-        return "Error suggesting dispute strategy. Please try again."
+        error_msg = str(e)
+        if "timeout" in error_msg.lower():
+            return "Analysis timed out. Please try again later or contact support."
+        return f"Error suggesting dispute strategy: {error_msg[:100]}... Please try again later."
 
 def chat_with_documents(user_message, context):
     """
@@ -329,8 +394,9 @@ def chat_with_documents(user_message, context):
     
     try:
         # Truncate context if it's too long
-        if len(context) > 10000:
-            context = context[:10000] + "...[truncated due to length]"
+        max_chars = 10000
+        if len(context) > max_chars:
+            context = context[:max_chars] + "...[truncated due to length]"
             
         prompt = f"""
         You are an AI assistant for a construction claims management system. Answer the user's question 
@@ -347,11 +413,18 @@ def chat_with_documents(user_message, context):
         response = openai.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.2
+            temperature=0.2,
+            timeout=30  # 30-second timeout for better user experience
         )
         
+        if not response or not hasattr(response, 'choices') or not response.choices:
+            return "I'm sorry, but I couldn't generate a response at this time. Please try asking again."
+            
         return response.choices[0].message.content
         
     except Exception as e:
         print(f"Error in chatbot: {str(e)}")
+        error_msg = str(e)
+        if "timeout" in error_msg.lower():
+            return "I'm sorry, but the response timed out. Please try asking a simpler question or breaking it into multiple parts."
         return "I'm sorry, but I encountered an error while processing your request. Please try again."
