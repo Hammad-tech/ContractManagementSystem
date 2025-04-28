@@ -141,7 +141,8 @@
                 <div class="col-lg-6">
                     <h5 class="report-section-title">Key Risk Findings</h5>
                     <div class="bg-dark p-3 rounded" style="max-height: 300px; overflow-y: auto;">
-                        {% for risk in risks|sort(attribute='risk_score', reverse=True)[:5] %}
+                        {% set sorted_risks = risks|sort(attribute='risk_score', reverse=True) %}
+                        {% for risk in sorted_risks[:5] %}
                             <div class="mb-3 {% if not loop.last %}border-bottom pb-3{% endif %}">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <span class="badge bg-{{ 'danger' if risk.risk_score >= 75 else ('warning' if risk.risk_score >= 50 else ('info' if risk.risk_score >= 25 else 'success')) }}">
