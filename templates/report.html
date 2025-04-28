@@ -168,7 +168,8 @@
                         <span class="text-danger">{{ high_risks }} high-risk</span> clauses require immediate attention.
                     {% endif %}
                     The most prevalent risk categories are 
-                    {% for category, count in categories.items()|sort(attribute=1, reverse=true)[:3] %}
+                    {% set sorted_categories = categories.items()|sort(attribute=1, reverse=true) %}
+                    {% for category, count in sorted_categories[:3] %}
                         {% if loop.last and loop.index > 1 %}and {% endif %}
                         <span class="text-info">{{ category }}</span>{% if not loop.last and not loop.index == categories|length - 1 %}, {% endif %}
                     {% endfor %}.
@@ -395,7 +396,7 @@
         {% endif %}
         
         <p class="mb-0">
-            This report was generated on <strong>{{ now().strftime('%B %d, %Y') }}</strong> 
+            This report was generated on <strong>{{ current_date.strftime('%B %d, %Y') }}</strong> 
             using AI-powered construction claim analysis technology.
         </p>
     </div>
