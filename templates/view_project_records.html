@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}Project Records - {{ project.project_name }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('upload_document', project_id=project.id) }}">{{ project.project_name }}</a></li>
+        <li class="breadcrumb-item active">Project Records</li>
+    </ol>
+</nav>
+
+<div class="row mb-4">
+    <div class="col-md-7">
+        <h1 class="mb-2">Project Records</h1>
+        <p class="lead">View and analyze uploaded project documentation</p>
+    </div>
+    <div class="col-md-5 text-md-end d-flex flex-wrap justify-content-md-end gap-2">
+        <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-outline-primary">
+            <i class="fas fa-upload me-1"></i> Upload More
+        </a>
+        <form action="{{ url_for('analyze_records', project_id=project.id) }}" method="POST" class="d-inline">
+            <button type="submit" class="btn btn-warning">
+                <i class="fas fa-search me-1"></i> Analyze Records
+            </button>
+        </form>
+        <a href="{{ url_for('generate_report', project_id=project.id) }}" class="btn btn-success">
+            <i class="fas fa-file-alt me-1"></i> View Report
+        </a>
+    </div>
+</div>
+
+<!-- Record Type Filters -->
+<div class="card shadow-sm mb-4 fade-in-element">
+    <div class="card-header bg-dark">
+        <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filter Records</h5>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-primary filter-btn active" data-filter="all">
+                <i class="fas fa-th-list me-1"></i> All
+            </button>
+            <button class="btn btn-outline-primary filter-btn" data-filter="schedule">
+                <i class="fas fa-calendar-alt me-1"></i> Schedules
+            </button>
+            <button class="btn btn-outline-primary filter-btn" data-filter="log">
+                <i class="fas fa-clipboard-list me-1"></i> Daily Reports
+            </button>
+            <button class="btn btn-outline-primary filter-btn" data-filter="correspondence">
+                <i class="fas fa-envelope me-1"></i> Correspondence
+            </button>
+            <button class="btn btn-outline-primary filter-btn" data-filter="change_order">
+                <i class="fas fa-file-signature me-1"></i> Change Orders
+            </button>
+            <button class="btn btn-outline-primary filter-btn" data-filter="invoice">
+                <i class="fas fa-file-invoice-dollar me-1"></i> Invoices
+            </button>
+            <button class="btn btn-outline-primary filter-btn" data-filter="other">
+                <i class="fas fa-file me-1"></i> Other
+            </button>
+        </div>
+    </div>
+</div>
+
+{% if records %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for record in records %}
+            <div class="col fade-in-element record-item" data-type="{{ record.record_type }}">
+                <div class="card h-100 shadow-sm document-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 text-truncate" title="{{ record.filename }}">
+                            {{ record.filename }}
+                        </h5>
+                        <span class="badge bg-primary document-type-badge">
+                            {% if record.record_type == 'schedule' %}
+                                <i class="fas fa-calendar-alt me-1"></i> Schedule
+                            {% elif record.record_type == 'log' %}
+                                <i class="fas fa-clipboard-list me-1"></i> Daily Report
+                            {% elif record.record_type == 'correspondence' %}
+                                <i class="fas fa-envelope me-1"></i> Correspondence
+                            {% elif record.record_type == 'change_order' %}
+                                <i class="fas fa-file-signature me-1"></i> Change Order
+                            {% elif record.record_type == 'invoice' %}
+                                <i class="fas fa-file-invoice-dollar me-1"></i> Invoice
+                            {% else %}
+                                <i class="fas fa-file me-1"></i> {{ record.record_type|title }}
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="fas fa-calendar-alt me-1"></i> Uploaded on {{ record.uploaded_at.strftime('%B %d, %Y') }}
+                            </small>
+                        </div>
+                        <h6>Document Preview:</h6>
+                        <div class="bg-dark p-2 rounded mb-3" style="max-height: 100px; overflow-y: auto;">
+                            <p class="text-light small mb-0">{{ record.extracted_text|truncate(300) }}</p>
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex justify-content-between align-items-center">
+                        <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#recordModal-{{ record.id }}">
+                            <i class="fas fa-eye me-1"></i> View Content
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Record Content Modal -->
+            <div class="modal fade" id="recordModal-{{ record.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title">
+                                {{ record.filename }} 
+                                <span class="badge bg-info ms-2">{{ record.record_type|title }}</span>
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <pre class="text-light mb-0 p-3 bg-dark rounded" style="white-space: pre-wrap;">{{ record.extracted_text }}</pre>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="card text-center py-5 shadow-sm fade-in-element">
+        <div class="card-body">
+            <i class="fas fa-folder-open fa-4x mb-3 text-muted"></i>
+            <h4>No Project Records Found</h4>
+            <p class="text-muted">Upload project records to begin analysis</p>
+            <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-primary mt-2">
+                <i class="fas fa-upload me-1"></i> Upload Records
+            </a>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Additional JS for this page -->
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Filter functionality
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        const recordItems = document.querySelectorAll('.record-item');
+        
+        filterButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Update active button
+                filterButtons.forEach(btn => btn.classList.remove('active', 'btn-primary'));
+                filterButtons.forEach(btn => btn.classList.add('btn-outline-primary'));
+                this.classList.remove('btn-outline-primary');
+                this.classList.add('active', 'btn-primary');
+                
+                const filter = this.getAttribute('data-filter');
+                
+                // Filter records
+                recordItems.forEach(item => {
+                    if (filter === 'all' || item.getAttribute('data-type') === filter) {
+                        item.style.display = '';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        });
+    });
+</script>
+{% endblock %}
+{% endblock %}

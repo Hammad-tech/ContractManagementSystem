@@ -1,0 +1,166 @@
+/* Custom styles for Construction Claims Management Application */
+
+/* Base styling */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+footer {
+    margin-top: auto;
+    padding: 1rem 0;
+    font-size: 0.9rem;
+}
+
+/* Dashboard */
+.dashboard-card {
+    transition: transform 0.2s;
+    height: 100%;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.dashboard-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+/* Document and Record Cards */
+.document-card {
+    margin-bottom: 1.5rem;
+    height: calc(100% - 1.5rem);
+}
+
+.document-card .card-header {
+    font-weight: 500;
+}
+
+.document-type-badge {
+    font-size: 0.8rem;
+}
+
+.truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Risk Analysis */
+.risk-table tr:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.risk-score {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+    border-radius: 50%;
+}
+
+.risk-high {
+    background-color: rgba(var(--bs-danger-rgb), 0.2);
+    color: var(--bs-danger);
+}
+
+.risk-medium {
+    background-color: rgba(var(--bs-warning-rgb), 0.2);
+    color: var(--bs-warning);
+}
+
+.risk-low {
+    background-color: rgba(var(--bs-info-rgb), 0.2);
+    color: var(--bs-info);
+}
+
+.risk-minimal {
+    background-color: rgba(var(--bs-success-rgb), 0.2);
+    color: var(--bs-success);
+}
+
+/* Chatbot */
+.chat-container {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.chat-message {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    max-width: 80%;
+}
+
+.user-message {
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.2);
+    margin-left: auto;
+}
+
+.ai-message {
+    background-color: rgba(var(--bs-secondary-rgb), 0.1);
+    border: 1px solid rgba(var(--bs-secondary-rgb), 0.2);
+    margin-right: auto;
+}
+
+.chat-timestamp {
+    font-size: 0.75rem;
+    color: var(--bs-secondary);
+}
+
+/* Report */
+.report-section {
+    margin-bottom: 2rem;
+}
+
+.report-section-title {
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(var(--bs-secondary-rgb), 0.2);
+}
+
+.quantum-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+/* Animation */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s;
+}
+
+/* Utility classes */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, var(--bs-primary) 0%, #4a6fdc 100%);
+}
+
+.text-wrap-balance {
+    text-wrap: balance;
+}
+
+.shadow-sm-hover:hover {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .chat-message {
+        max-width: 90%;
+    }
+}

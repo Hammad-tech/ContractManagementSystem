@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+
+{% block title %}View Document - {{ document.filename }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('upload_document', project_id=project.id) }}">{{ project.project_name }}</a></li>
+        <li class="breadcrumb-item active">{{ document.filename }}</li>
+    </ol>
+</nav>
+
+<div class="row mb-4">
+    <div class="col-md-7">
+        <h1 class="mb-2">{{ document.filename }}</h1>
+        <p class="text-muted">
+            <i class="fas fa-calendar-alt me-1"></i> Uploaded on {{ document.uploaded_at.strftime('%B %d, %Y at %H:%M') }}
+        </p>
+    </div>
+    <div class="col-md-5 text-md-end d-flex flex-wrap justify-content-md-end gap-2">
+        <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-outline-primary">
+            <i class="fas fa-upload me-1"></i> Upload More
+        </a>
+        <a href="{{ url_for('view_risks', project_id=project.id) }}" class="btn btn-warning">
+            <i class="fas fa-exclamation-triangle me-1"></i> View All Risks
+        </a>
+        <a href="{{ url_for('generate_report', project_id=project.id) }}" class="btn btn-success">
+            <i class="fas fa-file-alt me-1"></i> View Report
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4 fade-in-element">
+            <div class="card-header bg-dark">
+                <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Document Content</h5>
+            </div>
+            <div class="card-body">
+                <div class="bg-dark p-3 rounded" style="max-height: 500px; overflow-y: auto;">
+                    <pre class="text-light mb-0" style="white-space: pre-wrap;">{{ document.extracted_text }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4 fade-in-element">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Risk Analysis</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if risks %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Risk Category</th>
+                                    <th class="text-center">Score</th>
+                                    <th>Clause</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for risk in risks %}
+                                    <tr data-bs-toggle="collapse" data-bs-target="#risk-{{ risk.id }}" role="button" aria-expanded="false" class="clickable">
+                                        <td>
+                                            <span class="badge bg-{{ 'danger' if risk.risk_score >= 75 else ('warning' if risk.risk_score >= 50 else ('info' if risk.risk_score >= 25 else 'success')) }}">
+                                                {{ risk.risk_category }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="risk-score risk-{{ 'high' if risk.risk_score >= 75 else ('medium' if risk.risk_score >= 50 else ('low' if risk.risk_score >= 25 else 'minimal')) }}">
+                                                {{ risk.risk_score }}
+                                            </div>
+                                        </td>
+                                        <td>{{ risk.clause_text|truncate(50, true) }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="3" class="p-0">
+                                            <div id="risk-{{ risk.id }}" class="collapse">
+                                                <div class="p-3 bg-dark">
+                                                    <h6>Full Clause Text:</h6>
+                                                    <p class="font-monospace">{{ risk.clause_text }}</p>
+                                                    <h6 class="mt-3">Explanation:</h6>
+                                                    <p>{{ risk.explanation }}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-search fa-3x mb-3 text-muted"></i>
+                        <h5>No risks detected</h5>
+                        <p class="text-muted">This document does not contain significant contractual risks</p>
+                    </div>
+                {% endif %}
+            </div>
+            {% if risks %}
+                <div class="card-footer d-flex justify-content-between align-items-center">
+                    <span class="text-muted"><i class="fas fa-info-circle me-1"></i> Click a risk to view details</span>
+                    <span class="badge bg-primary">{{ risks|length }} Risks Found</span>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Document Actions Card -->
+<div class="card shadow-sm mb-4 fade-in-element">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Document Actions</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4 mb-3 mb-md-0">
+                <div class="card h-100 bg-dark">
+                    <div class="card-body text-center">
+                        <i class="fas fa-robot fa-3x mb-3 text-info"></i>
+                        <h5>Ask Questions</h5>
+                        <p class="mb-4">Chat with AI about this document</p>
+                        <div class="d-grid">
+                            <a href="{{ url_for('chatbot', project_id=project.id) }}" class="btn btn-info">
+                                <i class="fas fa-comments me-1"></i> Open Chatbot
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3 mb-md-0">
+                <div class="card h-100 bg-dark">
+                    <div class="card-body text-center">
+                        <i class="fas fa-file-upload fa-3x mb-3 text-success"></i>
+                        <h5>Add Project Records</h5>
+                        <p class="mb-4">Upload supporting documents</p>
+                        <div class="d-grid">
+                            <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-success">
+                                <i class="fas fa-upload me-1"></i> Upload Records
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 bg-dark">
+                    <div class="card-body text-center">
+                        <i class="fas fa-file-contract fa-3x mb-3 text-warning"></i>
+                        <h5>Generate Report</h5>
+                        <p class="mb-4">Create claim analysis report</p>
+                        <div class="d-grid">
+                            <a href="{{ url_for('generate_report', project_id=project.id) }}" class="btn btn-warning">
+                                <i class="fas fa-file-alt me-1"></i> View Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

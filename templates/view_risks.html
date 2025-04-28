@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+
+{% block title %}Risk Analysis - {{ project.project_name }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('upload_document', project_id=project.id) }}">{{ project.project_name }}</a></li>
+        <li class="breadcrumb-item active">Risk Analysis</li>
+    </ol>
+</nav>
+
+<div class="row mb-4">
+    <div class="col-md-7">
+        <h1 class="mb-2">Risk Analysis</h1>
+        <p class="lead">Contract risk assessment and categorization</p>
+    </div>
+    <div class="col-md-5 text-md-end d-flex flex-wrap justify-content-md-end gap-2">
+        <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-outline-primary">
+            <i class="fas fa-upload me-1"></i> Upload Documents
+        </a>
+        <a href="{{ url_for('view_project_records', project_id=project.id) }}" class="btn btn-info">
+            <i class="fas fa-folder-open me-1"></i> View Records
+        </a>
+        <a href="{{ url_for('generate_report', project_id=project.id) }}" class="btn btn-success">
+            <i class="fas fa-file-alt me-1"></i> View Report
+        </a>
+    </div>
+</div>
+
+<!-- Risk Summary Card -->
+<div class="card shadow-sm mb-4 fade-in-element">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Risk Summary</h5>
+    </div>
+    <div class="card-body">
+        {% if risks %}
+            <div class="row">
+                <div class="col-md-4 mb-4 mb-md-0">
+                    <div class="card h-100 bg-dark">
+                        <div class="card-body text-center">
+                            <h2 class="mb-3">{{ risks|length }}</h2>
+                            <h5 class="text-muted">Total Risks Identified</h5>
+                            
+                            <!-- Risk level breakdown -->
+                            <div class="mt-4">
+                                {% set high_risks = risks|selectattr('risk_score', 'ge', 75)|list|length %}
+                                {% set medium_risks = risks|selectattr('risk_score', 'ge', 50)|selectattr('risk_score', 'lt', 75)|list|length %}
+                                {% set low_risks = risks|selectattr('risk_score', 'ge', 25)|selectattr('risk_score', 'lt', 50)|list|length %}
+                                {% set minimal_risks = risks|selectattr('risk_score', 'lt', 25)|list|length %}
+                                
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>High Risk:</span>
+                                    <span class="badge bg-danger">{{ high_risks }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Medium Risk:</span>
+                                    <span class="badge bg-warning">{{ medium_risks }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Low Risk:</span>
+                                    <span class="badge bg-info">{{ low_risks }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Minimal Risk:</span>
+                                    <span class="badge bg-success">{{ minimal_risks }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-8">
+                    <div class="card h-100 bg-dark">
+                        <div class="card-body">
+                            <h5 class="text-center mb-3">Risk Categories</h5>
+                            
+                            <!-- Count risks by category -->
+                            {% set categories = {} %}
+                            {% for risk in risks %}
+                                {% if risk.risk_category in categories %}
+                                    {% if categories.update({risk.risk_category: categories[risk.risk_category] + 1}) %}{% endif %}
+                                {% else %}
+                                    {% if categories.update({risk.risk_category: 1}) %}{% endif %}
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <div class="row row-cols-1 row-cols-md-3 g-3">
+                                {% for category, count in categories.items() %}
+                                    <div class="col">
+                                        <div class="card bg-dark border">
+                                            <div class="card-body text-center p-3">
+                                                <h3 class="mb-2">{{ count }}</h3>
+                                                <p class="mb-0">{{ category }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-exclamation-circle fa-3x mb-3 text-warning"></i>
+                <h4>No Risks Detected</h4>
+                <p class="text-muted">Upload contract documents to analyze for risks</p>
+                <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-primary mt-2">
+                    <i class="fas fa-upload me-1"></i> Upload Contracts
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Detailed Risk Table -->
+{% if risks %}
+    <div class="card shadow-sm mb-4 fade-in-element">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Detailed Risk Analysis</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Risk Category</th>
+                            <th class="text-center">Score</th>
+                            <th>Source Document</th>
+                            <th>Clause</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for risk in risks|sort(attribute='risk_score', reverse=True) %}
+                            {% set document = risk.document %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if risk.risk_score >= 75 else ('warning' if risk.risk_score >= 50 else ('info' if risk.risk_score >= 25 else 'success')) }}">
+                                        {{ risk.risk_category }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="risk-score risk-{{ 'high' if risk.risk_score >= 75 else ('medium' if risk.risk_score >= 50 else ('low' if risk.risk_score >= 25 else 'minimal')) }}">
+                                        {{ risk.risk_score }}
+                                    </div>
+                                </td>
+                                <td class="text-truncate" style="max-width: 150px;" title="{{ document.filename }}">
+                                    <a href="{{ url_for('view_document', project_id=project.id, document_id=document.id) }}">
+                                        {{ document.filename }}
+                                    </a>
+                                </td>
+                                <td class="text-truncate" style="max-width: 250px;">
+                                    {{ risk.clause_text|truncate(50, true) }}
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#riskModal-{{ risk.id }}">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            
+                            <!-- Risk Detail Modal -->
+                            <div class="modal fade" id="riskModal-{{ risk.id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header bg-{{ 'danger' if risk.risk_score >= 75 else ('warning' if risk.risk_score >= 50 else ('info' if risk.risk_score >= 25 else 'success')) }} {{ 'text-dark' if risk.risk_score < 75 else 'text-white' }}">
+                                            <h5 class="modal-title">
+                                                {{ risk.risk_category }} Risk 
+                                                <span class="badge bg-dark ms-2">Score: {{ risk.risk_score }}</span>
+                                            </h5>
+                                            <button type="button" class="btn-close {{ 'btn-close-white' if risk.risk_score >= 75 else '' }}" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="mb-4">
+                                                <h6>Source Document:</h6>
+                                                <p>
+                                                    <a href="{{ url_for('view_document', project_id=project.id, document_id=document.id) }}">
+                                                        {{ document.filename }}
+                                                    </a>
+                                                </p>
+                                            </div>
+                                            
+                                            <div class="mb-4">
+                                                <h6>Clause Text:</h6>
+                                                <div class="bg-dark p-3 rounded">
+                                                    <p class="text-light mb-0">{{ risk.clause_text }}</p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div>
+                                                <h6>Risk Explanation:</h6>
+                                                <p>{{ risk.explanation }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <a href="{{ url_for('view_document', project_id=project.id, document_id=document.id) }}" class="btn btn-info">
+                                                <i class="fas fa-file-alt me-1"></i> View Document
+                                            </a>
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer">
+            <p class="mb-0 text-muted"><i class="fas fa-info-circle me-1"></i> Risk scores range from 0-100 (higher scores indicate greater risk)</p>
+        </div>
+    </div>
+    
+    <!-- Risk Management Tips -->
+    <div class="card shadow-sm mb-4 fade-in-element">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Risk Management Tips</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-4 mb-md-0">
+                    <div class="d-flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-exclamation-circle fa-2x text-danger me-3"></i>
+                        </div>
+                        <div>
+                            <h5>High Risk Items</h5>
+                            <p>Address immediately through contract amendment, negotiation, or specific risk mitigation strategies.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4 mb-md-0">
+                    <div class="d-flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-tasks fa-2x text-warning me-3"></i>
+                        </div>
+                        <div>
+                            <h5>Documentation</h5>
+                            <p>Maintain thorough project records to substantiate claims and defend against counterclaims.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-balance-scale fa-2x text-info me-3"></i>
+                        </div>
+                        <div>
+                            <h5>Risk Transfer</h5>
+                            <p>Consider insurance, bonding, or other contractual mechanisms to transfer risk where appropriate.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

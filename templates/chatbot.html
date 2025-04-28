@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}Project Chatbot - {{ project.project_name }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('upload_document', project_id=project.id) }}">{{ project.project_name }}</a></li>
+        <li class="breadcrumb-item active">Project Chatbot</li>
+    </ol>
+</nav>
+
+<div class="row mb-4">
+    <div class="col-md-7">
+        <h1 class="mb-2">Project Chatbot</h1>
+        <p class="lead">Ask questions about your contracts and project documentation</p>
+    </div>
+    <div class="col-md-5 text-md-end d-flex flex-wrap justify-content-md-end gap-2">
+        <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-outline-primary">
+            <i class="fas fa-upload me-1"></i> Upload Documents
+        </a>
+        <a href="{{ url_for('generate_report', project_id=project.id) }}" class="btn btn-success">
+            <i class="fas fa-file-alt me-1"></i> View Report
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4 order-lg-2 mb-4">
+        <div class="card shadow-sm h-100 fade-in-element">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>About Chatbot</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h5><i class="fas fa-robot text-info me-2"></i>How It Works</h5>
+                    <p>This AI assistant can answer questions based on your uploaded project documents and contracts. It has access to all documents in your project.</p>
+                </div>
+                
+                <div class="mb-4">
+                    <h5><i class="fas fa-lightbulb text-warning me-2"></i>Example Questions</h5>
+                    <ul class="mb-0">
+                        <li>What are the key delay provisions in the contract?</li>
+                        <li>Summarize the notice requirements for claims</li>
+                        <li>Are there any payment issues in the project records?</li>
+                        <li>What evidence exists for the delay claim?</li>
+                        <li>Explain the liquidated damages clause</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-0">
+                    <h5><i class="fas fa-exclamation-triangle text-danger me-2"></i>Limitations</h5>
+                    <p class="mb-0">The chatbot can only answer based on the documents you've uploaded. It may not have all context about your specific project situation.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-8 order-lg-1">
+        <div class="card shadow-sm mb-4 fade-in-element">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-comments me-2"></i>Project Assistant</h5>
+            </div>
+            <div class="card-body">
+                <!-- Chat Messages -->
+                <div class="chat-container mb-4 p-3 bg-dark rounded">
+                    {% if chat_messages %}
+                        {% for message in chat_messages %}
+                            <div class="chat-message {{ 'user-message' if message.is_user else 'ai-message' }}">
+                                <div class="mb-1">
+                                    <strong>{{ 'You' if message.is_user else 'AI Assistant' }}</strong>
+                                    <span class="chat-timestamp">{{ message.timestamp.strftime('%H:%M') }}</span>
+                                </div>
+                                <div style="white-space: pre-wrap;">{{ message.message }}</div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5 text-muted">
+                            <i class="fas fa-robot fa-3x mb-3"></i>
+                            <h5>No messages yet</h5>
+                            <p>Ask a question to start the conversation</p>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Chat Input -->
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="input-group">
+                        {{ form.message(class="form-control", placeholder="Ask a question about your project...", rows="2") }}
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane me-1"></i> Send
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer bg-dark text-muted">
+                <small><i class="fas fa-info-circle me-1"></i> The AI uses your project documents for context - upload more for better answers</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

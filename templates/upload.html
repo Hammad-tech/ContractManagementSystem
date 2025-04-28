@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Documents - {{ project.project_name }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">{{ project.project_name }}</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-md-8">
+        <h1 class="mb-4">Upload Documents</h1>
+        <p class="lead">
+            Upload contracts and project records for analysis. Upload contracts first, then supporting project documentation.
+        </p>
+    </div>
+    <div class="col-md-4 text-md-end">
+        <a href="{{ url_for('view_risks', project_id=project.id) }}" class="btn btn-outline-info">
+            <i class="fas fa-exclamation-triangle me-1"></i> View Risk Analysis
+        </a>
+        <a href="{{ url_for('generate_report', project_id=project.id) }}" class="btn btn-success ms-2">
+            <i class="fas fa-file-alt me-1"></i> View Report
+        </a>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4 fade-in-element">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-file-contract me-2"></i>Upload Contract</h5>
+            </div>
+            <div class="card-body">
+                <p>Upload contract documents for risk analysis.</p>
+                <form method="POST" enctype="multipart/form-data" novalidate>
+                    {{ contract_form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        <label for="{{ contract_form.document.id }}" class="form-label">Contract Document (PDF, DOCX, TXT)</label>
+                        <div class="input-group">
+                            {{ contract_form.document(class="form-control custom-file-input" + (" is-invalid" if contract_form.document.errors else "")) }}
+                            <label class="input-group-text" for="{{ contract_form.document.id }}">Browse</label>
+                        </div>
+                        {% if contract_form.document.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in contract_form.document.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">
+                            Supported formats: PDF, DOCX, DOC, TXT
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        {{ contract_form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer bg-dark text-muted">
+                <small><i class="fas fa-info-circle me-1"></i> Contracts will be analyzed for risk clauses</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4 fade-in-element">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Upload Project Record</h5>
+            </div>
+            <div class="card-body">
+                <p>Upload supporting documentation for project analysis.</p>
+                <form method="POST" enctype="multipart/form-data" novalidate>
+                    {{ record_form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        <label for="{{ record_form.record_type.id }}" class="form-label">Record Type</label>
+                        {{ record_form.record_type(class="form-select" + (" is-invalid" if record_form.record_type.errors else "")) }}
+                        {% if record_form.record_type.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in record_form.record_type.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ record_form.record.id }}" class="form-label">Project Record (PDF, DOCX, TXT)</label>
+                        <div class="input-group">
+                            {{ record_form.record(class="form-control custom-file-input" + (" is-invalid" if record_form.record.errors else "")) }}
+                            <label class="input-group-text" for="{{ record_form.record.id }}">Browse</label>
+                        </div>
+                        {% if record_form.record.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in record_form.record.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">
+                            Supported formats: PDF, DOCX, DOC, TXT
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        {{ record_form.submit(class="btn btn-info") }}
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer bg-dark text-muted">
+                <small><i class="fas fa-info-circle me-1"></i> Records will be used for entitlement and quantum analysis</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-2">
+    <div class="col-12">
+        <div class="card shadow-sm fade-in-element">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>Next Steps</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center mb-3 mb-md-0">
+                            <div class="bg-info text-white rounded-circle p-3 me-3">
+                                <i class="fas fa-upload"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1">1. Upload Documents</h5>
+                                <p class="mb-0 text-muted">Contract and project records</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center mb-3 mb-md-0">
+                            <div class="bg-warning text-white rounded-circle p-3 me-3">
+                                <i class="fas fa-search"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1">2. Analyze Records</h5>
+                                <p class="mb-0 text-muted">For entitlement and quantum</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-success text-white rounded-circle p-3 me-3">
+                                <i class="fas fa-file-pdf"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1">3. Generate Report</h5>
+                                <p class="mb-0 text-muted">Get claim assessment report</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-dark">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('view_project_records', project_id=project.id) }}" class="btn btn-warning">
+                        <i class="fas fa-folder-open me-1"></i> View All Records
+                    </a>
+                    <a href="{{ url_for('chatbot', project_id=project.id) }}" class="btn btn-info">
+                        <i class="fas fa-robot me-1"></i> Project Chatbot
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
