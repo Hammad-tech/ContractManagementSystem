@@ -392,152 +392,119 @@ def analyze_records(project_id):
             flash('No project records found for analysis. Please upload some records first.', 'warning')
             return redirect(url_for('view_project_records', project_id=project_id))
         
+        # Check for OpenAI API key
+        if not os.environ.get("OPENAI_API_KEY"):
+            flash('OpenAI API key not found. Please contact the administrator.', 'danger')
+            return redirect(url_for('view_project_records', project_id=project_id))
+            
+        # Notify user that analysis is starting
+        flash('Starting record analysis. This may take a moment...', 'info')
+        
         # Record types for better analysis feedback
         record_types = [record.record_type for record in records]
-        record_count = len(records)
         
-        # Save entitlement analysis
-        sample_findings = """
-        # Entitlement Analysis for Sunshine Mall Delay Claim
+        # Before running analysis, check if we have the right types of records
+        recommended_types = ['schedule', 'log', 'correspondence', 'invoice']
+        missing_types = [rec_type for rec_type in recommended_types if rec_type not in record_types]
         
-        ## Overview
-        Based on the project records provided, this analysis evaluates whether XYZ Builders Inc. has entitlement for a delay claim related to the Sunshine Mall Project.
+        if missing_types:
+            missing = ", ".join(missing_types)
+            flash(f'Note: For best results, consider adding {missing} records', 'warning')
         
-        ## Evidence of Delay Events
-        The daily site logs from July 12-15, 2025 document severe weather conditions that prevented normal construction activities:
-        - Heavy rainfall (5-6 inches daily)
-        - Site access restrictions
-        - Safety officer "No Work" directive due to lightning risk
-        - Ground waterlogging preventing crane operation
+        # Combine record texts for analysis (with truncation for large texts)
+        combined_texts = []
+        for record in records:
+            record_content = f"--- {record.record_type}: {record.filename} ---\n{record.extracted_text or ''}"
+            # Limit each record to 5000 chars to prevent excessive token usage
+            if len(record_content) > 5000:
+                record_content = record_content[:5000] + "... [content truncated]"
+            combined_texts.append(record_content)
         
-        ## Contractual Basis
-        The contractor has cited the Force Majeure clause (Clause 6) in their formal notification of delay. This provides a contractual basis for the claim, though a full contract review would be necessary to confirm specific terms.
+        combined_text = "\n\n".join(combined_texts)
         
-        ## Timely Notice
-        Records show the contractor submitted formal notification on July 20, 2025, which appears to be within a reasonable timeframe after the weather events (July 12-15, 2025).
-        
-        ## Mitigation Efforts
-        The records indicate some mitigation efforts were attempted:
-        - Preparations for site recovery began as soon as conditions started improving
-        - Emergency expedited shipping was arranged for steel components
-        - Temporary storage was rented for water-sensitive materials
-        
-        ## Causation Links
-        There is a clear causation link between:
-        1. The severe weather events
-        2. The inability to perform structural work
-        3. Delayed steel framework erection (identified as a Critical Path activity)
-        4. The projected 14-day delay to the Structural Completion milestone
-        
-        ## Conclusion
-        Based on the available records, XYZ Builders appears to have valid entitlement for a delay claim under the Force Majeure provision. The documentation shows:
-        - A qualifying event (severe weather)
-        - Proper notice
-        - Reasonable mitigation efforts
-        - Direct causation to project delay
-        
-        Further analysis would benefit from reviewing the full contract terms, particularly the Force Majeure clause, and any baseline schedule documentation to confirm the critical path impact.
-        """
-        
-        entitlement = EntitlementCausation.query.filter_by(project_id=project_id).first()
-        if entitlement:
-            entitlement.findings = sample_findings
-        else:
-            entitlement = EntitlementCausation(
-                project_id=project_id,
-                findings=sample_findings
-            )
-            db.session.add(entitlement)
+        # Step 1: Analyze for entitlement and causation
+        try:
+            findings = analyze_project_records(combined_text)
             
-        # Save quantum analysis
-        quantum_result = {
-            "cost_estimate": 32000.0,
-            "time_impact_days": 14,
-            "calculation_method": "Based on the invoice showing additional costs of $32,000 for expedited shipping and temporary storage due to weather delays. The time impact of 14 days is taken directly from the contractor's formal delay notification and confirmed by the daily site logs indicating complete work stoppage during the severe weather period."
-        }
+            # Save or update findings
+            entitlement = EntitlementCausation.query.filter_by(project_id=project_id).first()
+            
+            if entitlement:
+                entitlement.findings = findings
+            else:
+                entitlement = EntitlementCausation(
+                    project_id=project_id,
+                    findings=findings
+                )
+                db.session.add(entitlement)
+            
+            # Commit after each successful analysis to save progress
+            db.session.commit()
+            
+        except Exception as e:
+            app.logger.error(f"Error analyzing entitlement: {str(e)}")
+            flash(f'Error in entitlement analysis: {str(e)[:100]}...', 'warning')
+            # Continue with the next analysis even if this one failed
         
-        quantum = Quantum.query.filter_by(project_id=project_id).first()
-        if quantum:
-            quantum.cost_estimate = quantum_result['cost_estimate']
-            quantum.time_impact_days = quantum_result['time_impact_days']
-            quantum.calculation_method = quantum_result['calculation_method']
+        # Step 2: Assess quantum
+        try:
+            quantum_result = assess_quantum(combined_text)
+            
+            # Save or update quantum
+            quantum = Quantum.query.filter_by(project_id=project_id).first()
+            
+            if quantum:
+                quantum.cost_estimate = quantum_result['cost_estimate']
+                quantum.time_impact_days = quantum_result['time_impact_days']
+                quantum.calculation_method = quantum_result['calculation_method']
+            else:
+                quantum = Quantum(
+                    project_id=project_id,
+                    cost_estimate=quantum_result['cost_estimate'],
+                    time_impact_days=quantum_result['time_impact_days'],
+                    calculation_method=quantum_result['calculation_method']
+                )
+                db.session.add(quantum)
+            
+            # Commit after each successful analysis to save progress
+            db.session.commit()
+            
+        except Exception as e:
+            app.logger.error(f"Error assessing quantum: {str(e)}")
+            flash(f'Error in quantum assessment: {str(e)[:100]}...', 'warning')
+            # Continue with the next analysis even if this one failed
+        
+        # Step 3: Evaluate counterclaims
+        try:
+            counterclaim_summary = evaluate_counterclaims(combined_text)
+            
+            # Save or update counterclaims
+            counterclaim = Counterclaim.query.filter_by(project_id=project_id).first()
+            
+            if counterclaim:
+                counterclaim.counterclaim_summary = counterclaim_summary
+            else:
+                counterclaim = Counterclaim(
+                    project_id=project_id,
+                    counterclaim_summary=counterclaim_summary
+                )
+                db.session.add(counterclaim)
+            
+            # Final commit
+            db.session.commit()
+            
+        except Exception as e:
+            app.logger.error(f"Error evaluating counterclaims: {str(e)}")
+            flash(f'Error in counterclaim evaluation: {str(e)[:100]}...', 'warning')
+            db.session.rollback()
+        
+        # Check if any part of the analysis was successful
+        if (EntitlementCausation.query.filter_by(project_id=project_id).first() or
+            Quantum.query.filter_by(project_id=project_id).first() or
+            Counterclaim.query.filter_by(project_id=project_id).first()):
+            flash('Project records analysis completed. View the report for results.', 'success')
         else:
-            quantum = Quantum(
-                project_id=project_id,
-                cost_estimate=quantum_result['cost_estimate'],
-                time_impact_days=quantum_result['time_impact_days'],
-                calculation_method=quantum_result['calculation_method']
-            )
-            db.session.add(quantum)
-        
-        # Save counterclaim analysis
-        sample_counterclaim = """
-        # Potential Counterclaims and Defenses
-        
-        Based on the limited project records available, here are potential counterclaims and defenses that might be considered:
-        
-        ## 1. Improper Notice
-        
-        While the contractor did provide formal notification of the delay on July 20, 2025, one potential defense would be to verify whether this notification meets all contractual requirements. Specifically:
-        
-        - Does the contract specify a particular time frame for notification (e.g., within 7 days of the event)?
-        - Were all required details included in the notification?
-        - Was the notification delivered to the correct parties through the required channels?
-        
-        Without access to the full contract terms, it's impossible to determine if the July 20 notification (for events from July 12-15) was timely enough.
-        
-        ## 2. Failure to Mitigate
-        
-        Another potential defense could involve questioning whether the contractor took all reasonable steps to mitigate the delay and associated costs:
-        
-        - Could work have been rescheduled to non-affected areas of the project?
-        - Were all possible measures taken to protect materials and equipment from weather damage?
-        - Could alternative suppliers have been contacted earlier to minimize the delay in steel delivery?
-        
-        The invoice indicates emergency expedited shipping costs of $18,000, which raises the question of whether this premium cost could have been avoided with better planning.
-        
-        ## 3. Concurrent Delay
-        
-        The project records mention that delivery of steel beams was delayed by the supplier (July 13 site log). A potential counterclaim could argue that this supplier delay was concurrent with the weather events and would have caused delay regardless of the rainfall.
-        
-        Questions to investigate:
-        - What was the original scheduled delivery date for the steel beams?
-        - Was the supplier delay independent of the weather conditions?
-        - Would the project have been delayed even without the severe weather?
-        
-        ## 4. Force Majeure Scope
-        
-        The applicability of the Force Majeure clause would need to be scrutinized:
-        
-        - Does the contract explicitly include "heavy rainfall" or "severe weather" in its Force Majeure definition?
-        - Is there a threshold for what constitutes extraordinary weather versus normal seasonal conditions?
-        - Does historical weather data show this was truly an exceptional event?
-        
-        ## Recommendation
-        
-        Additional documentation would be needed to develop these counterclaims fully, including:
-        
-        - The complete construction contract
-        - The baseline project schedule
-        - Historical weather data for the region
-        - Correspondence with the steel supplier
-        - Detailed records of mitigation efforts
-        
-        Without these documents, any counterclaims would be difficult to substantiate.
-        """
-        
-        counterclaim = Counterclaim.query.filter_by(project_id=project_id).first()
-        if counterclaim:
-            counterclaim.counterclaim_summary = sample_counterclaim
-        else:
-            counterclaim = Counterclaim(
-                project_id=project_id,
-                counterclaim_summary=sample_counterclaim
-            )
-            db.session.add(counterclaim)
-        
-        db.session.commit()
-        flash('Records analyzed based on limited data. This is a sample analysis to demonstrate functionality. For full analysis, proper contract documents and more complete records would be needed.', 'info')
+            flash('Analysis could not be completed. Please try again with different project records.', 'danger')
     
     except Exception as e:
         db.session.rollback()
