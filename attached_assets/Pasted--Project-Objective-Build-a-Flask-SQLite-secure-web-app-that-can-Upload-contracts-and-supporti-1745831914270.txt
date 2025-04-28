@@ -1,0 +1,270 @@
+🎯 Project Objective:
+Build a Flask + SQLite secure web app that can:
+
+Upload contracts and supporting project documentation (schedules, logs, invoices).
+
+Analyze contracts for risk clauses.
+
+Analyze project records to validate causation.
+
+Evaluate entitlement based on contract terms.
+
+Quantify claims using cost-based and time impact methods (simplified version).
+
+Evaluate counterclaims and defenses.
+
+Generate claim reports ready for dispute resolution.
+
+Allow users to chat with an AI chatbot using uploaded project documents + contracts.
+
+🛠 Technology Stack
+
+Layer	Tech
+Backend	Flask
+Frontend	HTML + CSS
+Database	SQLite
+LLM / AI	OpenAI GPT API
+Document Parsing	PyMuPDF (PDFs), python-docx (DOCX), OCR for scanned images
+Reports	HTML download, PDF via WeasyPrint
+Scheduler Analysis	Basic CPM/TIA explanations using GPT (no real CPM engine in MVP)
+🗂 Folder Structure
+bash
+Copy
+Edit
+/templates
+    ├── login.html
+    ├── signup.html
+    ├── dashboard.html
+    ├── upload.html
+    ├── view_document.html
+    ├── view_project_records.html
+    ├── view_risks.html
+    ├── chatbot.html
+    ├── report.html
+
+/static
+    ├── styles.css
+
+/uploads
+    └── (uploaded documents here)
+
+/project_records
+    └── (uploaded project logs, invoices, etc.)
+
+.env (for API keys)
+
+requirements.txt
+
+app.py
+
+database.db
+📂 Database Tables
+
+Table	Fields
+users	id, username, email, password_hash
+projects	id, user_id, project_name, created_at
+documents	id, project_id, filename, extracted_text, uploaded_at
+project_records	id, project_id, record_type (e.g., schedule, log, invoice), filename, extracted_text, uploaded_at
+risks	id, document_id, clause_text, risk_category, risk_score, explanation
+entitlement_causation	id, project_id, findings (text)
+quantum	id, project_id, cost_estimate, time_impact_days, calculation_method
+counterclaims	id, project_id, counterclaim_summary
+🔥 Functional Modules
+1. Authentication
+✅ User signup/login.
+✅ Password hashing using Werkzeug.
+
+2. Contract & Project Document Upload
+✅ Upload Contract (PDF, DOCX).
+✅ Upload Project Records:
+
+Baseline schedules
+
+Daily site reports
+
+Emails/correspondence (PDFs)
+
+Change orders
+
+Payment records/invoices
+
+✅ Extract and save text from each.
+
+3. Risk Analysis
+✅ Use OpenAI to find risky clauses from contracts.
+✅ Risk Categories:
+
+Delay Claims
+
+Disruption Claims
+
+Acceleration Claims
+
+Payment Claims
+
+Defective Work Claims
+
+Scope Change Claims
+
+Breach
+
+Liquidated Damages
+
+Termination
+
+✅ Risk Scoring: 0-100.
+✅ Risk Explanation.
+
+Prompt Example:
+
+text
+Copy
+Edit
+From this contract text, identify risky clauses and categorize them into Delay, Disruption, Acceleration, Payment, Defective Work, Scope Change, Breach, Liquidated Damages, or Termination risks.
+Assign each a risk score and explanation.
+4. Project Record Analysis (Entitlement & Causation)
+✅ Analyze uploaded records to:
+
+Validate causation (connect delay/costs to events).
+
+Check notices were sent timely.
+
+Confirm scope changes or disruptions.
+
+Prompt Example:
+
+text
+Copy
+Edit
+Using the project daily logs, emails, and baseline schedules, validate whether the contractor has entitlement for delay or disruption claims.
+Provide reasoning for causation links and mitigation efforts.
+✅ Output must summarize entitlement findings.
+
+5. Quantum Assessment
+✅ Simple methods to calculate:
+
+Cost Claims (actual cost method from invoices, change orders)
+
+Time Impact (CPM/TIA style analysis by GPT prompt, estimating days lost)
+
+Prompt Example:
+
+text
+Copy
+Edit
+Using change orders, invoices, and project records, estimate total financial quantum of claims and time impact delays.
+✅ Save outputs as:
+
+Estimated cost ($)
+
+Estimated delay (days)
+
+6. Counterclaims and Defenses
+✅ Analyze for possible counterclaims:
+
+Concurrent delay
+
+Improper notice
+
+Failure to mitigate
+
+Prompt Example:
+
+text
+Copy
+Edit
+Based on owner’s correspondence and project logs, list possible counterclaims and defenses.
+✅ Save counterclaim findings.
+
+7. Dispute Strategy Suggestion
+✅ Summarize:
+
+Negotiation strategy
+
+ADR (mediation/arbitration) recommendation
+
+Litigation risks
+
+Prompt Example:
+
+text
+Copy
+Edit
+Based on claim risks and counterclaims, suggest whether negotiation, ADR, or litigation is recommended.
+✅ Include this in the final report.
+
+8. Chatbot (Context-Aware)
+✅ Let user select which project and chatbot contextually answers based on:
+
+Contract text
+
+Uploaded project documentation text
+
+✅ Chatbot must not hallucinate unrelated information.
+
+9. Report Generation
+✅ Full downloadable structured report:
+
+List of Risks
+
+Entitlement and causation findings
+
+Quantum estimate
+
+Counterclaim evaluation
+
+Dispute strategy recommendation
+
+Attach document summary (optional)
+
+✅ Download as HTML first, PDF later.
+
+📜 Requirements.txt Example
+txt
+Copy
+Edit
+Flask
+python-docx
+PyMuPDF
+requests
+openai
+python-dotenv
+Werkzeug
+WeasyPrint (for PDF export)
+Flask-Login
+🔒 Security
+✅ Encrypt file uploads if possible.
+✅ OpenAI key must be environment-variable loaded.
+✅ CSRF protection for forms.
+
+❗ Important for Developer
+Break OpenAI input into 3000 token chunks max.
+
+Costs must be approximated based on available invoices.
+
+Time impact is illustrative, not a full Primavera P6 schedule analysis.
+
+Handle file upload errors gracefully.
+
+Provide clear error if document text extraction fails.
+
+📢 Final MVP Delivery Instruction for Replit
+Build a full Flask + SQLite system for evaluating construction claims end-to-end:
+
+User login/signup
+
+Upload contracts + project support documents
+
+Detect risky clauses (Delay, Payment, Breach, Disruption, etc.)
+
+Analyze project records for entitlement and causation
+
+Quantify claims using cost and time impact
+
+Evaluate counterclaims and defenses
+
+Generate structured downloadable reports
+
+Enable contract-aware AI chatbot
+
+Focus on security, token limits, and basic document management
