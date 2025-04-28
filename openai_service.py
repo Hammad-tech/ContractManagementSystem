@@ -60,17 +60,32 @@ def analyze_contract_risks(contract_text):
     
     try:
         prompt = f"""
-        From this contract text, identify risky clauses and categorize them into Delay, Disruption, Acceleration, 
-        Payment, Defective Work, Scope Change, Breach, Liquidated Damages, or Termination risks.
-        Assign each a risk score between 0-100 and provide an explanation.
+        You are a construction contract risk analyst. Thoroughly analyze this construction contract text to identify clauses that pose risks to the contractor.
         
-        Format your response as a valid JSON array with objects containing:
+        Identify clauses related to:
+        - Delay: Clauses that impose strict deadlines or penalties for delays
+        - Disruption: Clauses that could lead to disruption claims
+        - Payment: Terms that could affect timely payment or cash flow
+        - Liquidated Damages: Specific penalties for non-performance
+        - Termination: Unfavorable termination clauses
+        - Scope Change: Restrictive change order procedures
+        - Force Majeure: Limited relief for unforeseen events
+        - Dispute Resolution: Unfavorable dispute resolution procedures
+        - Indemnification: Broad indemnification obligations
+        
+        For each identified risk clause:
+        1. Extract the exact text from the contract
+        2. Categorize the risk
+        3. Assign a risk score (0-100, with higher scores indicating greater risk)
+        4. Provide a detailed explanation of why it's risky
+        
+        BE THOROUGH - Construction contracts often contain hidden risks that may seem standard but can have significant implications.
+        
+        Format your response as a JSON object with a "risks" array containing objects with these fields:
         - clause_text: The exact text from the contract (up to 500 chars)
-        - risk_category: One of the categories mentioned above
-        - risk_score: Integer 0-100
-        - explanation: Brief explanation of the risk
-        
-        Only include clauses that contain actual risk. Respond with an empty array if no risks are found.
+        - risk_category: The category from the list above
+        - risk_score: Integer from 0-100
+        - explanation: Detailed explanation of the risk
         
         Contract Text:
         {contract_text}
@@ -80,7 +95,7 @@ def analyze_contract_risks(contract_text):
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            temperature=0.1
+            temperature=0.3
         )
         
         result = json.loads(response.choices[0].message.content)

@@ -301,6 +301,31 @@ def view_document(project_id, document_id):
     risks = Risk.query.filter_by(document_id=document_id).all()
     return render_template('view_document.html', project=project, document=document, risks=risks)
 
+@app.route('/project/<int:project_id>/document/<int:document_id>/download')
+@login_required
+def download_document(project_id, document_id):
+    project = Project.query.get_or_404(project_id)
+    document = Document.query.get_or_404(document_id)
+    
+    # Ensure the current user owns the project
+    if project.user_id != current_user.id or document.project_id != project_id:
+        abort(403)
+    
+    # Build file path
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], document.filename)
+    
+    # Check if file exists
+    if not os.path.exists(file_path):
+        flash('Document file not found', 'danger')
+        return redirect(url_for('view_document', project_id=project_id, document_id=document_id))
+    
+    # Return the file
+    return send_file(
+        file_path,
+        as_attachment=True,
+        download_name=document.filename
+    )
+
 @app.route('/project/<int:project_id>/records')
 @login_required
 def view_project_records(project_id):
@@ -312,6 +337,31 @@ def view_project_records(project_id):
     
     records = ProjectRecord.query.filter_by(project_id=project_id).all()
     return render_template('view_project_records.html', project=project, records=records)
+
+@app.route('/project/<int:project_id>/record/<int:record_id>/download')
+@login_required
+def download_record(project_id, record_id):
+    project = Project.query.get_or_404(project_id)
+    record = ProjectRecord.query.get_or_404(record_id)
+    
+    # Ensure the current user owns the project
+    if project.user_id != current_user.id or record.project_id != project_id:
+        abort(403)
+    
+    # Build file path
+    file_path = os.path.join(app.config['PROJECT_RECORDS_FOLDER'], record.filename)
+    
+    # Check if file exists
+    if not os.path.exists(file_path):
+        flash('Record file not found', 'danger')
+        return redirect(url_for('view_project_records', project_id=project_id))
+    
+    # Return the file
+    return send_file(
+        file_path,
+        as_attachment=True,
+        download_name=record.filename
+    )
 
 @app.route('/project/<int:project_id>/risks')
 @login_required
