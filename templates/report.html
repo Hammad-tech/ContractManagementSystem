@@ -38,7 +38,7 @@
         <div class="row">
             <div class="col-md-6 mb-3 mb-md-0">
                 <h5><i class="fas fa-calendar-alt me-2 text-info"></i>Report Date:</h5>
-                <p>{{ now().strftime('%B %d, %Y') }}</p>
+                <p>{{ current_date.strftime('%B %d, %Y') }}</p>
                 
                 <h5><i class="fas fa-folder-open me-2 text-info"></i>Project Created:</h5>
                 <p>{{ project.created_at.strftime('%B %d, %Y') }}</p>

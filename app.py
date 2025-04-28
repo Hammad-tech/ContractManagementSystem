@@ -544,6 +544,9 @@ def generate_report(project_id):
         
         dispute_strategy = suggest_dispute_strategy(combined_text)
     
+    # Add current date for the report
+    current_date = datetime.now()
+    
     return render_template('report.html', 
                           project=project, 
                           documents=documents, 
@@ -552,7 +555,8 @@ def generate_report(project_id):
                           quantum=quantum, 
                           counterclaim=counterclaim,
                           records=records,
-                          dispute_strategy=dispute_strategy)
+                          dispute_strategy=dispute_strategy,
+                          current_date=current_date)
 
 @app.route('/project/<int:project_id>/report/download')
 @login_required
@@ -588,6 +592,9 @@ def download_report(project_id):
         
         dispute_strategy = suggest_dispute_strategy(combined_text)
     
+    # Add current date for the report
+    current_date = datetime.now()
+    
     # Generate HTML report
     html = render_template('report.html', 
                           project=project, 
@@ -598,6 +605,7 @@ def download_report(project_id):
                           counterclaim=counterclaim,
                           records=records,
                           dispute_strategy=dispute_strategy,
+                          current_date=current_date,
                           pdf_download=True)
     
     # Convert to PDF
