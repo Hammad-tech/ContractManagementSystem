@@ -60,26 +60,44 @@ def analyze_contract_risks(contract_text):
     
     try:
         prompt = f"""
-        You are a construction contract risk analyst. Thoroughly analyze this construction contract text to identify clauses that pose risks to the contractor.
+        You are a construction contract risk analyst with expertise in construction law and claims management. Thoroughly analyze this construction contract text to identify clauses that pose risks to the contractor.
         
-        Identify clauses related to:
-        - Delay: Clauses that impose strict deadlines or penalties for delays
-        - Disruption: Clauses that could lead to disruption claims
-        - Payment: Terms that could affect timely payment or cash flow
-        - Liquidated Damages: Specific penalties for non-performance
-        - Termination: Unfavorable termination clauses
-        - Scope Change: Restrictive change order procedures
-        - Force Majeure: Limited relief for unforeseen events
-        - Dispute Resolution: Unfavorable dispute resolution procedures
-        - Indemnification: Broad indemnification obligations
+        Identify clauses related to these risk categories (and any other relevant categories you identify):
+        - Delay: Clauses that impose strict deadlines, penalties for delays, or unreasonable time constraints
+        - Disruption: Clauses that could lead to disruption claims or impede contractor workflow
+        - Payment: Terms that could affect timely payment, retention, cash flow, or payment security
+        - Liquidated Damages: Specific penalties or damages for non-performance or delay
+        - Termination: Unfavorable or one-sided termination clauses or procedures
+        - Scope Change: Restrictive change order procedures, ambiguous scope definitions, or owner-directed changes
+        - Force Majeure: Limited relief for unforeseen events, pandemic provisions, or supply chain disruptions
+        - Dispute Resolution: Unfavorable dispute resolution procedures, jurisdiction, or waiver of rights
+        - Indemnification: Broad indemnification obligations or uninsurable risks
+        - Site Conditions: Differing site conditions clauses, site access limitations, or site responsibility issues
+        - Insurance/Bonds: Onerous insurance requirements, high bond amounts, or difficult-to-obtain coverage
+        - Warranty: Extended warranty periods, unreasonable performance guarantees, or defect liability terms
+        - Compliance: Regulatory compliance requirements or shifting compliance risks
         
         For each identified risk clause:
         1. Extract the exact text from the contract
-        2. Categorize the risk
-        3. Assign a risk score (0-100, with higher scores indicating greater risk)
-        4. Provide a detailed explanation of why it's risky
+        2. Categorize the risk using the categories above (or create a new category if needed)
+        3. Assign a risk score (0-100, with higher scores indicating greater risk):
+           - 75-100: High risk (significant financial/legal exposure, requires immediate attention)
+           - 50-74: Medium risk (substantial concerns, should be addressed or negotiated)
+           - 25-49: Low risk (some concerns, but potentially manageable)
+           - 0-24: Minimal risk (standard terms, limited concern)
+        4. Provide a detailed explanation of why it's risky, including:
+           - Potential financial impact
+           - Legal implications
+           - Practical consequences for project execution
+           - Recommended mitigation strategies
         
-        BE THOROUGH - Construction contracts often contain hidden risks that may seem standard but can have significant implications.
+        BE EXTREMELY THOROUGH - Construction contracts often contain hidden risks that may seem standard but can have significant implications. Look for:
+        - Non-standard language variations of common clauses
+        - One-sided provisions favoring the owner
+        - Subtle shifts of risk to the contractor
+        - Ambiguous language that could be exploited
+        - Requirements that exceed industry standards
+        - Provisions that conflict with other contract terms
         
         Format your response as a JSON object with a "risks" array containing objects with these fields:
         - clause_text: The exact text from the contract (up to 500 chars)
