@@ -9,8 +9,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from io import BytesIO
-import weasyprint
 import json
+
+# Try to import WeasyPrint, but don't fail if it's not available
+try:
+    import weasyprint
+    WEASYPRINT_AVAILABLE = True
+except ImportError:
+    WEASYPRINT_AVAILABLE = False
+    print("Warning: WeasyPrint is not available. PDF generation will be disabled.")
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -658,7 +665,7 @@ def download_report(project_id):
     if project.user_id != current_user.id:
         abort(403)
     
-    # Get all relevant project data (same as generate_report)
+    # Get all relevant project data
     documents = Document.query.filter_by(project_id=project_id).all()
     risks = Risk.query.filter_by(project_id=project_id).all()
     entitlement = EntitlementCausation.query.filter_by(project_id=project_id).first()
@@ -686,35 +693,49 @@ def download_report(project_id):
     # Add current date for the report
     current_date = datetime.now()
     
-    # Generate HTML report
-    html = render_template('report.html', 
-                          project=project, 
-                          documents=documents, 
-                          risks=risks, 
-                          entitlement=entitlement, 
-                          quantum=quantum, 
-                          counterclaim=counterclaim,
-                          records=records,
-                          dispute_strategy=dispute_strategy,
-                          current_date=current_date,
-                          pdf_download=True)
-    
-    # Convert to PDF
-    pdf = weasyprint.HTML(string=html).write_pdf()
-    
-    # Create a BytesIO object
-    pdf_io = BytesIO(pdf)
-    pdf_io.seek(0)
-    
-    # Generate filename
-    filename = f"{project.project_name.replace(' ', '_')}_claim_report.pdf"
-    
-    return send_file(
-        pdf_io,
-        mimetype='application/pdf',
-        as_attachment=True,
-        download_name=filename
-    )
+    if WEASYPRINT_AVAILABLE:
+        # Generate HTML report
+        html = render_template('report.html', 
+                            project=project, 
+                            documents=documents, 
+                            risks=risks, 
+                            entitlement=entitlement, 
+                            quantum=quantum, 
+                            counterclaim=counterclaim,
+                            records=records,
+                            dispute_strategy=dispute_strategy,
+                            current_date=current_date,
+                            pdf_download=True)
+        
+        # Convert to PDF
+        pdf = weasyprint.HTML(string=html).write_pdf()
+        
+        # Create a BytesIO object
+        pdf_io = BytesIO(pdf)
+        pdf_io.seek(0)
+        
+        # Generate filename
+        filename = f"{project.project_name.replace(' ', '_')}_claim_report.pdf"
+        
+        return send_file(
+            pdf_io,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
+        )
+    else:
+        # If WeasyPrint is not available, return HTML version
+        flash('PDF generation is not available. Showing HTML version instead.', 'warning')
+        return render_template('report.html',
+                            project=project,
+                            documents=documents,
+                            risks=risks,
+                            entitlement=entitlement,
+                            quantum=quantum,
+                            counterclaim=counterclaim,
+                            records=records,
+                            dispute_strategy=dispute_strategy,
+                            current_date=current_date)
 
 # Run the application
 if __name__ == '__main__':
