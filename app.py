@@ -6,45 +6,44 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from sqlalchemy.exc import SQLAlchemyError
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase
 from io import BytesIO
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 import json
+from dotenv import load_dotenv
+import tempfile
 
-# Try to import WeasyPrint, but don't fail if it's not available
-try:
-    import weasyprint
-    WEASYPRINT_AVAILABLE = True
-except ImportError:
-    WEASYPRINT_AVAILABLE = False
-    print("Warning: WeasyPrint is not available. PDF generation will be disabled.")
+# Load environment variables from .env file
+load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 
 # Initialize Flask app
-class Base(DeclarativeBase):
-    pass
-
-db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET")
+app.secret_key = os.getenv('SESSION_SECRET', 'default-secret-key')  # Fallback to default if not set
 
 # Configure database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['PROJECT_RECORDS_FOLDER'] = 'project_records'
-db.init_app(app)
+app.config['REPORTS_FOLDER'] = 'reports'  # Add reports folder
 
-# Initialize Flask-Login
-login_manager = LoginManager()
+# Import extensions
+from extensions import db, login_manager
+
+# Initialize extensions
+db.init_app(app)
 login_manager.init_app(app)
-login_manager.login_view = 'login'
 
 # Create upload directories if they don't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['PROJECT_RECORDS_FOLDER'], exist_ok=True)
+os.makedirs(app.config['REPORTS_FOLDER'], exist_ok=True)  # Create reports directory
 
 # Import models and services
 from models import User, Project, Document, ProjectRecord, Risk, EntitlementCausation, Quantum, Counterclaim, ChatMessage
@@ -392,76 +391,38 @@ def analyze_records(project_id):
         abort(403)
     
     try:
-        # Get all project records
+        # Get all project records and documents
         records = ProjectRecord.query.filter_by(project_id=project_id).all()
+        documents = Document.query.filter_by(project_id=project_id).all()
         
-        if not records:
-            flash('No project records found for analysis. Please upload some records first.', 'warning')
+        if not records and not documents:
+            flash('No project records or documents found for analysis. Please upload some files first.', 'warning')
             return redirect(url_for('view_project_records', project_id=project_id))
         
-        # Record types for better analysis feedback
-        record_types = [record.record_type for record in records]
-        record_count = len(records)
+        # Combine all record texts for analysis
+        record_texts = [record.extracted_text for record in records if record.extracted_text]
+        document_texts = [doc.extracted_text for doc in documents if doc.extracted_text]
+        combined_text = "\n\n".join(record_texts + document_texts)
         
-        # Save entitlement analysis
-        sample_findings = """
-        # Entitlement Analysis for Sunshine Mall Delay Claim
+        if not combined_text.strip():
+            flash('No extractable text found in the uploaded files. Please ensure files contain readable text.', 'warning')
+            return redirect(url_for('view_project_records', project_id=project_id))
         
-        ## Overview
-        Based on the project records provided, this analysis evaluates whether XYZ Builders Inc. has entitlement for a delay claim related to the Sunshine Mall Project.
-        
-        ## Evidence of Delay Events
-        The daily site logs from July 12-15, 2025 document severe weather conditions that prevented normal construction activities:
-        - Heavy rainfall (5-6 inches daily)
-        - Site access restrictions
-        - Safety officer "No Work" directive due to lightning risk
-        - Ground waterlogging preventing crane operation
-        
-        ## Contractual Basis
-        The contractor has cited the Force Majeure clause (Clause 6) in their formal notification of delay. This provides a contractual basis for the claim, though a full contract review would be necessary to confirm specific terms.
-        
-        ## Timely Notice
-        Records show the contractor submitted formal notification on July 20, 2025, which appears to be within a reasonable timeframe after the weather events (July 12-15, 2025).
-        
-        ## Mitigation Efforts
-        The records indicate some mitigation efforts were attempted:
-        - Preparations for site recovery began as soon as conditions started improving
-        - Emergency expedited shipping was arranged for steel components
-        - Temporary storage was rented for water-sensitive materials
-        
-        ## Causation Links
-        There is a clear causation link between:
-        1. The severe weather events
-        2. The inability to perform structural work
-        3. Delayed steel framework erection (identified as a Critical Path activity)
-        4. The projected 14-day delay to the Structural Completion milestone
-        
-        ## Conclusion
-        Based on the available records, XYZ Builders appears to have valid entitlement for a delay claim under the Force Majeure provision. The documentation shows:
-        - A qualifying event (severe weather)
-        - Proper notice
-        - Reasonable mitigation efforts
-        - Direct causation to project delay
-        
-        Further analysis would benefit from reviewing the full contract terms, particularly the Force Majeure clause, and any baseline schedule documentation to confirm the critical path impact.
-        """
+        # Perform entitlement analysis
+        entitlement_findings = analyze_project_records(combined_text)
         
         entitlement = EntitlementCausation.query.filter_by(project_id=project_id).first()
         if entitlement:
-            entitlement.findings = sample_findings
+            entitlement.findings = entitlement_findings
         else:
             entitlement = EntitlementCausation(
                 project_id=project_id,
-                findings=sample_findings
+                findings=entitlement_findings
             )
             db.session.add(entitlement)
             
-        # Save quantum analysis
-        quantum_result = {
-            "cost_estimate": 32000.0,
-            "time_impact_days": 14,
-            "calculation_method": "Based on the invoice showing additional costs of $32,000 for expedited shipping and temporary storage due to weather delays. The time impact of 14 days is taken directly from the contractor's formal delay notification and confirmed by the daily site logs indicating complete work stoppage during the severe weather period."
-        }
+        # Perform quantum analysis
+        quantum_result = assess_quantum(combined_text)
         
         quantum = Quantum.query.filter_by(project_id=project_id).first()
         if quantum:
@@ -477,81 +438,50 @@ def analyze_records(project_id):
             )
             db.session.add(quantum)
         
-        # Save counterclaim analysis
-        sample_counterclaim = """
-        # Potential Counterclaims and Defenses
-        
-        Based on the limited project records available, here are potential counterclaims and defenses that might be considered:
-        
-        ## 1. Improper Notice
-        
-        While the contractor did provide formal notification of the delay on July 20, 2025, one potential defense would be to verify whether this notification meets all contractual requirements. Specifically:
-        
-        - Does the contract specify a particular time frame for notification (e.g., within 7 days of the event)?
-        - Were all required details included in the notification?
-        - Was the notification delivered to the correct parties through the required channels?
-        
-        Without access to the full contract terms, it's impossible to determine if the July 20 notification (for events from July 12-15) was timely enough.
-        
-        ## 2. Failure to Mitigate
-        
-        Another potential defense could involve questioning whether the contractor took all reasonable steps to mitigate the delay and associated costs:
-        
-        - Could work have been rescheduled to non-affected areas of the project?
-        - Were all possible measures taken to protect materials and equipment from weather damage?
-        - Could alternative suppliers have been contacted earlier to minimize the delay in steel delivery?
-        
-        The invoice indicates emergency expedited shipping costs of $18,000, which raises the question of whether this premium cost could have been avoided with better planning.
-        
-        ## 3. Concurrent Delay
-        
-        The project records mention that delivery of steel beams was delayed by the supplier (July 13 site log). A potential counterclaim could argue that this supplier delay was concurrent with the weather events and would have caused delay regardless of the rainfall.
-        
-        Questions to investigate:
-        - What was the original scheduled delivery date for the steel beams?
-        - Was the supplier delay independent of the weather conditions?
-        - Would the project have been delayed even without the severe weather?
-        
-        ## 4. Force Majeure Scope
-        
-        The applicability of the Force Majeure clause would need to be scrutinized:
-        
-        - Does the contract explicitly include "heavy rainfall" or "severe weather" in its Force Majeure definition?
-        - Is there a threshold for what constitutes extraordinary weather versus normal seasonal conditions?
-        - Does historical weather data show this was truly an exceptional event?
-        
-        ## Recommendation
-        
-        Additional documentation would be needed to develop these counterclaims fully, including:
-        
-        - The complete construction contract
-        - The baseline project schedule
-        - Historical weather data for the region
-        - Correspondence with the steel supplier
-        - Detailed records of mitigation efforts
-        
-        Without these documents, any counterclaims would be difficult to substantiate.
-        """
+        # Perform counterclaim analysis
+        counterclaim_summary = evaluate_counterclaims(combined_text)
         
         counterclaim = Counterclaim.query.filter_by(project_id=project_id).first()
         if counterclaim:
-            counterclaim.counterclaim_summary = sample_counterclaim
+            counterclaim.counterclaim_summary = counterclaim_summary
         else:
             counterclaim = Counterclaim(
                 project_id=project_id,
-                counterclaim_summary=sample_counterclaim
+                counterclaim_summary=counterclaim_summary
             )
             db.session.add(counterclaim)
         
+        # Analyze contract risks if documents are present
+        if documents:
+            # First, delete existing risks for this project
+            Risk.query.filter_by(project_id=project_id).delete()
+            
+            for doc in documents:
+                if doc.extracted_text:
+                    # Split text into chunks to handle large documents
+                    text_chunks = chunk_text(doc.extracted_text)
+                    for chunk in text_chunks:
+                        risks = analyze_contract_risks(chunk)
+                        for risk_data in risks:
+                            risk = Risk(
+                                document_id=doc.id,
+                                project_id=project_id,
+                                clause_text=risk_data['clause_text'][:500],  # Limit to 500 chars
+                                risk_category=risk_data['risk_category'],
+                                risk_score=risk_data['risk_score'],
+                                explanation=risk_data['explanation']
+                            )
+                            db.session.add(risk)
+        
         db.session.commit()
-        flash('Records analyzed based on limited data. This is a sample analysis to demonstrate functionality. For full analysis, proper contract documents and more complete records would be needed.', 'info')
+        flash('Analysis completed successfully!', 'success')
+        return redirect(url_for('generate_report', project_id=project_id))
     
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error during record analysis: {str(e)}")
         flash(f'Error during analysis: {str(e)}', 'danger')
-    
-    return redirect(url_for('view_project_records', project_id=project_id))
+        return redirect(url_for('view_project_records', project_id=project_id))
 
 # Chatbot route
 @app.route('/project/<int:project_id>/chat', methods=['GET', 'POST'])
@@ -617,44 +547,308 @@ def generate_report(project_id):
     if project.user_id != current_user.id:
         abort(403)
     
-    # Get all relevant project data
-    documents = Document.query.filter_by(project_id=project_id).all()
+    # Get all data for the report
     risks = Risk.query.filter_by(project_id=project_id).all()
-    entitlement = EntitlementCausation.query.filter_by(project_id=project_id).first()
+    entitlements = EntitlementCausation.query.filter_by(project_id=project_id).all()
     quantum = Quantum.query.filter_by(project_id=project_id).first()
-    counterclaim = Counterclaim.query.filter_by(project_id=project_id).first()
-    records = ProjectRecord.query.filter_by(project_id=project_id).all()
+    counterclaims = Counterclaim.query.filter_by(project_id=project_id).all()
     
-    # Generate dispute strategy recommendation
-    dispute_strategy = None
+    # Create a temporary file for the PDF
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf', dir=app.config['REPORTS_FOLDER'])
+    temp_filename = temp_file.name
+    temp_file.close()
     
-    if entitlement and quantum and counterclaim:
-        combined_text = f"""
-        Entitlement Findings: {entitlement.findings}
+    # Create the PDF document
+    doc = SimpleDocTemplate(temp_filename, pagesize=letter)
+    styles = getSampleStyleSheet()
+    story = []
+    
+    # Add title
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=30,
+        alignment=1  # Center alignment
+    )
+    story.append(Paragraph(f"Project Report: {project.project_name}", title_style))
+    story.append(Spacer(1, 12))
+    
+    # Add project details
+    story.append(Paragraph("Project Details", styles['Heading2']))
+    story.append(Spacer(1, 12))
+    
+    project_data = [
+        ["Project Name", project.project_name],
+        ["Created At", project.created_at.strftime("%Y-%m-%d %H:%M:%S")]
+    ]
+    
+    project_table = Table(project_data, colWidths=[2*inch, 4*inch])
+    project_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.darkgrey),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.white),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    story.append(project_table)
+    story.append(Spacer(1, 20))
+    
+    # Add risks section
+    if risks:
+        story.append(Paragraph("Identified Risks", styles['Heading2']))
+        story.append(Spacer(1, 12))
         
-        Quantum Assessment: 
-        Cost Estimate: ${quantum.cost_estimate}
-        Time Impact: {quantum.time_impact_days} days
+        # Create custom styles for risk table cells
+        risk_cell_style = ParagraphStyle(
+            'RiskCell',
+            parent=styles['Normal'],
+            fontSize=10,
+            leading=12,
+            spaceBefore=6,
+            spaceAfter=6,
+            alignment=0  # Left alignment
+        )
         
-        Counterclaim Summary:
-        {counterclaim.counterclaim_summary}
-        """
+        risk_data = [["Risk Category", "Risk Score", "Clause Text", "Explanation"]]
+        for risk in risks:
+            risk_data.append([
+                Paragraph(risk.risk_category, risk_cell_style),
+                Paragraph(str(risk.risk_score), risk_cell_style),
+                Paragraph(risk.clause_text, risk_cell_style),
+                Paragraph(risk.explanation, risk_cell_style)
+            ])
         
-        dispute_strategy = suggest_dispute_strategy(combined_text)
+        # Adjust column widths for better text wrapping
+        risk_table = Table(risk_data, colWidths=[1.5*inch, 0.8*inch, 2.2*inch, 2.5*inch])
+        risk_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkgrey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6)
+        ]))
+        story.append(risk_table)
+        story.append(Spacer(1, 20))
     
-    # Add current date for the report
-    current_date = datetime.now()
+    # Add quantum section
+    if quantum:
+        story.append(Paragraph("Quantum Analysis", styles['Heading2']))
+        story.append(Spacer(1, 12))
+        
+        # Create custom styles for quantum details
+        quantum_cell_style = ParagraphStyle(
+            'QuantumCell',
+            parent=styles['Normal'],
+            fontSize=10,
+            leading=14,
+            spaceBefore=6,
+            spaceAfter=6
+        )
+        
+        quantum_data = [
+            ["Cost Estimate", f"${quantum.cost_estimate:,.2f}"],
+            ["Time Impact", f"{quantum.time_impact_days} days"]
+        ]
+        
+        # Create the main table for cost and time impact
+        quantum_table = Table(quantum_data, colWidths=[2*inch, 4*inch])
+        quantum_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.darkgrey),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6)
+        ]))
+        story.append(quantum_table)
+        story.append(Spacer(1, 12))
+        
+        # Add calculation method with proper formatting
+        if quantum.calculation_method:
+            story.append(Paragraph("Calculation Method:", styles['Heading4']))
+            story.append(Spacer(1, 6))
+            # Split the calculation method into paragraphs for better readability
+            for paragraph in quantum.calculation_method.split('\n'):
+                if paragraph.strip():
+                    story.append(Paragraph(paragraph, quantum_cell_style))
+                    story.append(Spacer(1, 6))
+        
+        story.append(Spacer(1, 20))
     
+    # Add entitlements section
+    if entitlements:
+        story.append(Paragraph("Entitlements", styles['Heading2']))
+        story.append(Spacer(1, 12))
+        
+        # Create styles for different markdown elements
+        heading1_style = ParagraphStyle(
+            'MDHeading1',
+            parent=styles['Normal'],
+            fontSize=14,
+            leading=18,
+            spaceBefore=12,
+            spaceAfter=6,
+            textColor=colors.black,
+            fontName='Helvetica-Bold'
+        )
+        
+        heading2_style = ParagraphStyle(
+            'MDHeading2',
+            parent=styles['Normal'],
+            fontSize=12,
+            leading=16,
+            spaceBefore=10,
+            spaceAfter=6,
+            textColor=colors.black,
+            fontName='Helvetica-Bold'
+        )
+        
+        normal_style = ParagraphStyle(
+            'MDNormal',
+            parent=styles['Normal'],
+            fontSize=10,
+            leading=14,
+            spaceBefore=4,
+            spaceAfter=4,
+            textColor=colors.black
+        )
+        
+        bullet_style = ParagraphStyle(
+            'MDBullet',
+            parent=normal_style,
+            leftIndent=20,
+            firstLineIndent=0,
+            bulletIndent=10,
+            spaceBefore=2,
+            spaceAfter=2
+        )
+        
+        # Process markdown content
+        for entitlement in entitlements:
+            if entitlement.findings:
+                # Split content into lines
+                lines = entitlement.findings.split('\n')
+                current_text = ""
+                
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        if current_text:
+                            story.append(Paragraph(current_text, normal_style))
+                            current_text = ""
+                        story.append(Spacer(1, 6))
+                    elif line.startswith('# '):
+                        if current_text:
+                            story.append(Paragraph(current_text, normal_style))
+                            current_text = ""
+                        story.append(Paragraph(line[2:], heading1_style))
+                    elif line.startswith('## '):
+                        if current_text:
+                            story.append(Paragraph(current_text, normal_style))
+                            current_text = ""
+                        story.append(Paragraph(line[3:], heading2_style))
+                    elif line.startswith('- ') or line.startswith('* '):
+                        if current_text:
+                            story.append(Paragraph(current_text, normal_style))
+                            current_text = ""
+                        bullet_text = line[2:].replace('**', '')  # Remove markdown bold
+                        story.append(Paragraph(f"• {bullet_text}", bullet_style))
+                    else:
+                        # Clean up markdown formatting
+                        line = line.replace('**', '')  # Remove bold
+                        line = line.replace('###', '').strip()  # Remove heading marks
+                        if current_text:
+                            current_text += " " + line
+                        else:
+                            current_text = line
+                
+                # Add any remaining text
+                if current_text:
+                    story.append(Paragraph(current_text, normal_style))
+                
+                story.append(Spacer(1, 12))
+    
+    # Add counterclaims section with similar markdown processing
+    if counterclaims:
+        story.append(Paragraph("Counterclaims", styles['Heading2']))
+        story.append(Spacer(1, 12))
+        
+        for counterclaim in counterclaims:
+            if counterclaim.counterclaim_summary:
+                # Split content into lines
+                lines = counterclaim.counterclaim_summary.split('\n')
+                current_text = ""
+                
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        if current_text:
+                            story.append(Paragraph(current_text, normal_style))
+                            current_text = ""
+                        story.append(Spacer(1, 6))
+                    elif line.startswith('# '):
+                        if current_text:
+                            story.append(Paragraph(current_text, normal_style))
+                            current_text = ""
+                        story.append(Paragraph(line[2:], heading1_style))
+                    elif line.startswith('## '):
+                        if current_text:
+                            story.append(Paragraph(current_text, normal_style))
+                            current_text = ""
+                        story.append(Paragraph(line[3:], heading2_style))
+                    elif line.startswith('- ') or line.startswith('* '):
+                        if current_text:
+                            story.append(Paragraph(current_text, normal_style))
+                            current_text = ""
+                        bullet_text = line[2:].replace('**', '')  # Remove markdown bold
+                        story.append(Paragraph(f"• {bullet_text}", bullet_style))
+                    else:
+                        # Clean up markdown formatting
+                        line = line.replace('**', '')  # Remove bold
+                        line = line.replace('###', '').strip()  # Remove heading marks
+                        if current_text:
+                            current_text += " " + line
+                        else:
+                            current_text = line
+                
+                # Add any remaining text
+                if current_text:
+                    story.append(Paragraph(current_text, normal_style))
+                
+                story.append(Spacer(1, 12))
+    
+    # Build the PDF
+    doc.build(story)
+    
+    # Store the filename in the session
+    session['report_filename'] = temp_filename
+    
+    # Pass all data to the template
     return render_template('report.html', 
-                          project=project, 
-                          documents=documents, 
-                          risks=risks, 
-                          entitlement=entitlement, 
-                          quantum=quantum, 
-                          counterclaim=counterclaim,
-                          records=records,
-                          dispute_strategy=dispute_strategy,
-                          current_date=current_date)
+                         project=project,
+                         risks=risks,
+                         entitlements=entitlements,
+                         quantum=quantum,
+                         counterclaims=counterclaims)
 
 @app.route('/project/<int:project_id>/report/download')
 @login_required
@@ -665,77 +859,31 @@ def download_report(project_id):
     if project.user_id != current_user.id:
         abort(403)
     
-    # Get all relevant project data
-    documents = Document.query.filter_by(project_id=project_id).all()
-    risks = Risk.query.filter_by(project_id=project_id).all()
-    entitlement = EntitlementCausation.query.filter_by(project_id=project_id).first()
-    quantum = Quantum.query.filter_by(project_id=project_id).first()
-    counterclaim = Counterclaim.query.filter_by(project_id=project_id).first()
-    records = ProjectRecord.query.filter_by(project_id=project_id).all()
+    # Get the filename from the session
+    filename = session.get('report_filename')
+    if not filename or not os.path.exists(filename):
+        # If no file exists, generate it first
+        return redirect(url_for('generate_report', project_id=project_id))
     
-    # Generate dispute strategy recommendation
-    dispute_strategy = None
-    
-    if entitlement and quantum and counterclaim:
-        combined_text = f"""
-        Entitlement Findings: {entitlement.findings}
-        
-        Quantum Assessment: 
-        Cost Estimate: ${quantum.cost_estimate}
-        Time Impact: {quantum.time_impact_days} days
-        
-        Counterclaim Summary:
-        {counterclaim.counterclaim_summary}
-        """
-        
-        dispute_strategy = suggest_dispute_strategy(combined_text)
-    
-    # Add current date for the report
-    current_date = datetime.now()
-    
-    if WEASYPRINT_AVAILABLE:
-        # Generate HTML report
-        html = render_template('report.html', 
-                            project=project, 
-                            documents=documents, 
-                            risks=risks, 
-                            entitlement=entitlement, 
-                            quantum=quantum, 
-                            counterclaim=counterclaim,
-                            records=records,
-                            dispute_strategy=dispute_strategy,
-                            current_date=current_date,
-                            pdf_download=True)
-        
-        # Convert to PDF
-        pdf = weasyprint.HTML(string=html).write_pdf()
-        
-        # Create a BytesIO object
-        pdf_io = BytesIO(pdf)
-        pdf_io.seek(0)
-        
-        # Generate filename
-        filename = f"{project.project_name.replace(' ', '_')}_claim_report.pdf"
-        
+    try:
+        # Send the file
         return send_file(
-            pdf_io,
+            filename,
             mimetype='application/pdf',
             as_attachment=True,
-            download_name=filename
+            download_name=f"{project.project_name}_report.pdf"
         )
-    else:
-        # If WeasyPrint is not available, return HTML version
-        flash('PDF generation is not available. Showing HTML version instead.', 'warning')
-        return render_template('report.html',
-                            project=project,
-                            documents=documents,
-                            risks=risks,
-                            entitlement=entitlement,
-                            quantum=quantum,
-                            counterclaim=counterclaim,
-                            records=records,
-                            dispute_strategy=dispute_strategy,
-                            current_date=current_date)
+    except Exception as e:
+        app.logger.error(f"Error downloading report: {str(e)}")
+        flash('Error downloading report. Please try generating the report again.', 'error')
+        return redirect(url_for('generate_report', project_id=project_id))
+    finally:
+        # Clean up the temporary file
+        try:
+            if os.path.exists(filename):
+                os.unlink(filename)
+        except Exception as e:
+            app.logger.error(f"Error cleaning up temporary file: {str(e)}")
 
 # Run the application
 if __name__ == '__main__':

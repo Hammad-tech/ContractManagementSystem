@@ -1,7 +1,5 @@
-# Database
-instance/
-*.db
-*.sqlite3
+# Environment variables
+.env
 
 # Python
 __pycache__/
@@ -29,20 +27,24 @@ var/
 venv/
 ENV/
 
-# IDE
+# Database
+*.db
+*.sqlite3
+
+# IDE specific files
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# Environment variables
-.env
-.env.txt
+# Uploaded files and media
+uploads/*
+!uploads/.gitkeep
+project_records/*
+!project_records/.gitkeep
+attached_assets/*
+!attached_assets/.gitkeep
 
-# Logs
-*.log
-
-# Uploads
-uploads/
-project_records/
-attached_assets/ 
+# System Files
+.DS_Store
+Thumbs.db 

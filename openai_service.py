@@ -2,14 +2,21 @@ import os
 import json
 import textwrap
 from openai import OpenAI
+from dotenv import load_dotenv
 
-# The newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-# Do not change this unless explicitly requested by the user
+# Load environment variables from .env file
+load_dotenv()
+
+# Get OpenAI API key from environment variable
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY environment variable is not set. Please ensure you have a .env file with OPENAI_API_KEY=your_api_key")
+
+# Initialize OpenAI client with minimal configuration
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+# Using GPT-4 Turbo as the model
 OPENAI_MODEL = "gpt-4o"
-
-# Initialize OpenAI client
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-openai = OpenAI(api_key=OPENAI_API_KEY)
 
 def chunk_text(text, max_chunk_size=3000):
     """Break text into chunks of maximum token size."""
@@ -109,7 +116,7 @@ def analyze_contract_risks(contract_text):
         {contract_text}
         """
         
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
@@ -167,7 +174,7 @@ def analyze_project_records(record_text):
         """
         
         # Set timeout to avoid hanging requests
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
@@ -223,7 +230,7 @@ def assess_quantum(record_text):
         {record_text}
         """
         
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
@@ -306,7 +313,7 @@ def evaluate_counterclaims(record_text):
         {record_text}
         """
         
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
@@ -359,7 +366,7 @@ def suggest_dispute_strategy(analysis_text):
         {analysis_text}
         """
         
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
@@ -410,7 +417,7 @@ def chat_with_documents(user_message, context):
         {user_message}
         """
         
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,

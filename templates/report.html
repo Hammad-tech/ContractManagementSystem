@@ -1,482 +1,134 @@
-{% extends 'base.html' %}
-
-{% block title %}Claim Report - {{ project.project_name }}{% endblock %}
+{% extends "base.html" %}
 
 {% block content %}
-<!-- Breadcrumb -->
-<nav aria-label="breadcrumb" class="mb-4">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
-        <li class="breadcrumb-item"><a href="{{ url_for('upload_document', project_id=project.id) }}">{{ project.project_name }}</a></li>
-        <li class="breadcrumb-item active">Claim Report</li>
-    </ol>
-</nav>
-
-<div class="row mb-4">
-    <div class="col-md-7">
-        <h1 class="mb-2">Claim Analysis Report</h1>
-        <p class="lead">Comprehensive analysis of project claim elements</p>
-    </div>
-    <div class="col-md-5 text-md-end d-flex flex-wrap justify-content-md-end gap-2">
-        {% if not pdf_download %}
-        <a href="{{ url_for('download_report', project_id=project.id) }}" class="btn btn-outline-primary">
-            <i class="fas fa-file-pdf me-1"></i> Download PDF
-        </a>
-        <a href="{{ url_for('chatbot', project_id=project.id) }}" class="btn btn-info">
-            <i class="fas fa-comments me-1"></i> Project Chatbot
-        </a>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Report Header -->
-<div class="card shadow-sm mb-4 fade-in-element">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0"><i class="fas fa-file-contract me-2"></i>{{ project.project_name }} - Claim Report</h5>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-6 mb-3 mb-md-0">
-                <h5><i class="fas fa-calendar-alt me-2 text-info"></i>Report Date:</h5>
-                <p>{{ current_date.strftime('%B %d, %Y') }}</p>
-                
-                <h5><i class="fas fa-folder-open me-2 text-info"></i>Project Created:</h5>
-                <p>{{ project.created_at.strftime('%B %d, %Y') }}</p>
-            </div>
-            <div class="col-md-6">
-                <h5><i class="fas fa-file-alt me-2 text-info"></i>Documents Analyzed:</h5>
-                <p>{{ documents|length }} Contract Documents</p>
-                
-                <h5><i class="fas fa-clipboard-list me-2 text-info"></i>Project Records:</h5>
-                <p>{{ records|length }} Project Records</p>
-            </div>
+<div class="container mt-4">
+    <h1>Project Report: {{ project.project_name }}</h1>
+    
+    <div class="card mt-4 bg-dark">
+        <div class="card-body">
+            <h2 class="card-title">Project Details</h2>
+            <table class="table table-dark">
+                <tr>
+                    <th style="width: 200px;">Project Name</th>
+                    <td>{{ project.project_name }}</td>
+                </tr>
+                <tr>
+                    <th>Created At</th>
+                    <td>{{ project.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                </tr>
+            </table>
         </div>
     </div>
-</div>
 
-<!-- Executive Summary -->
-<div class="card shadow-sm mb-4 fade-in-element">
-    <div class="card-header bg-success text-white">
-        <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Executive Summary</h5>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-4 mb-4 mb-md-0">
-                <div class="card bg-dark h-100">
-                    <div class="card-body text-center p-4">
-                        <h6 class="text-warning mb-3">Claim Value</h6>
-                        {% if quantum %}
-                            <h2 class="quantum-value">${{ "%.2f"|format(quantum.cost_estimate) }}</h2>
-                        {% else %}
-                            <h2 class="quantum-value">$0.00</h2>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4 mb-md-0">
-                <div class="card bg-dark h-100">
-                    <div class="card-body text-center p-4">
-                        <h6 class="text-info mb-3">Time Impact</h6>
-                        {% if quantum %}
-                            <h2 class="quantum-value">{{ quantum.time_impact_days }} days</h2>
-                        {% else %}
-                            <h2 class="quantum-value">0 days</h2>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card bg-dark h-100">
-                    <div class="card-body text-center p-4">
-                        <h6 class="text-danger mb-3">Risk Level</h6>
-                        {% if risks %}
-                            {% set avg_risk = (risks|sum(attribute='risk_score') / risks|length)|int %}
-                            <h2 class="quantum-value">
-                                {% if avg_risk >= 75 %}
-                                    <span class="text-danger">High</span>
-                                {% elif avg_risk >= 50 %}
-                                    <span class="text-warning">Medium</span>
-                                {% elif avg_risk >= 25 %}
-                                    <span class="text-info">Low</span>
-                                {% else %}
-                                    <span class="text-success">Minimal</span>
-                                {% endif %}
-                            </h2>
-                        {% else %}
-                            <h2 class="quantum-value">N/A</h2>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Risk Analysis Section -->
-<div class="card shadow-sm mb-4 fade-in-element report-section">
-    <div class="card-header bg-warning text-dark">
-        <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Contract Risk Analysis</h5>
-    </div>
-    <div class="card-body">
-        {% if risks %}
-            <!-- Risk Categories Chart Data -->
-            {% set categories = {} %}
-            {% for risk in risks %}
-                {% if risk.risk_category in categories %}
-                    {% if categories.update({risk.risk_category: categories[risk.risk_category] + 1}) %}{% endif %}
-                {% else %}
-                    {% if categories.update({risk.risk_category: 1}) %}{% endif %}
-                {% endif %}
-            {% endfor %}
-
-            <div class="row">
-                <div class="col-lg-6 mb-4">
-                    <h5 class="report-section-title">Risk Category Distribution</h5>
-                    <div class="bg-dark p-3 rounded">
-                        <canvas id="riskCategoryChart" 
-                                data-labels="{{ categories.keys()|list|tojson }}" 
-                                data-counts="{{ categories.values()|list|tojson }}"></canvas>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <h5 class="report-section-title">Key Risk Findings</h5>
-                    <div class="bg-dark p-3 rounded" style="max-height: 300px; overflow-y: auto;">
-                        {% set sorted_risks = risks|sort(attribute='risk_score', reverse=True) %}
-                        {% for risk in sorted_risks[:5] %}
-                            <div class="mb-3 {% if not loop.last %}border-bottom pb-3{% endif %}">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="badge bg-{{ 'danger' if risk.risk_score >= 75 else ('warning' if risk.risk_score >= 50 else ('info' if risk.risk_score >= 25 else 'success')) }}">
-                                        {{ risk.risk_category }}
-                                    </span>
-                                    <span class="badge bg-dark">Score: {{ risk.risk_score }}</span>
-                                </div>
-                                <p class="font-monospace small">{{ risk.clause_text|truncate(150) }}</p>
-                                <p class="text-muted small mb-0">{{ risk.explanation|truncate(200) }}</p>
-                            </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-4">
-                <h5 class="report-section-title">Risk Assessment Summary</h5>
-                <p>
-                    The contract analysis identified {{ risks|length }} potential risk clauses across 
-                    {{ categories|length }} categories. 
-                    {% set high_risks = risks|selectattr('risk_score', 'ge', 75)|list|length %}
-                    {% if high_risks > 0 %}
-                        <span class="text-danger">{{ high_risks }} high-risk</span> clauses require immediate attention.
-                    {% endif %}
-                    The most prevalent risk categories are 
-                    {% set sorted_categories = categories.items()|sort(attribute=1, reverse=true) %}
-                    {% for category, count in sorted_categories[:3] %}
-                        {% if loop.last and loop.index > 1 %}and {% endif %}
-                        <span class="text-info">{{ category }}</span>{% if not loop.last and not loop.index == categories|length - 1 %}, {% endif %}
-                    {% endfor %}.
-                </p>
-            </div>
-        {% else %}
-            <div class="text-center py-4">
-                <i class="fas fa-search fa-3x mb-3 text-muted"></i>
-                <h5>No Risk Analysis Available</h5>
-                <p class="text-muted">Upload contract documents to analyze for risks</p>
-                {% if not pdf_download %}
-                <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-primary mt-2">
-                    <i class="fas fa-upload me-1"></i> Upload Contracts
-                </a>
-                {% endif %}
-            </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Entitlement & Causation Section -->
-<div class="card shadow-sm mb-4 fade-in-element report-section">
-    <div class="card-header bg-info text-white">
-        <h5 class="mb-0"><i class="fas fa-balance-scale me-2"></i>Entitlement & Causation Analysis</h5>
-    </div>
-    <div class="card-body">
-        {% if entitlement %}
-            <div class="bg-dark p-4 rounded">
-                <div style="white-space: pre-line;">{{ entitlement.findings }}</div>
-            </div>
-        {% else %}
-            <div class="text-center py-4">
-                <i class="fas fa-folder-open fa-3x mb-3 text-muted"></i>
-                <h5>No Entitlement Analysis Available</h5>
-                <p class="text-muted">Upload project records and run analysis to evaluate entitlement</p>
-                {% if not pdf_download %}
-                <a href="{{ url_for('view_project_records', project_id=project.id) }}" class="btn btn-primary mt-2">
-                    <i class="fas fa-search me-1"></i> Analyze Records
-                </a>
-                {% endif %}
-            </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Quantum Assessment Section -->
-<div class="card shadow-sm mb-4 fade-in-element report-section">
-    <div class="card-header bg-success text-white">
-        <h5 class="mb-0"><i class="fas fa-calculator me-2"></i>Quantum Assessment</h5>
-    </div>
-    <div class="card-body">
-        {% if quantum %}
-            <div class="row mb-4">
-                <div class="col-md-6 mb-4 mb-md-0">
-                    <div class="card bg-dark">
-                        <div class="card-body">
-                            <h5 class="card-title">Cost Estimate</h5>
-                            <h2 class="quantum-value">${{ "%.2f"|format(quantum.cost_estimate) }}</h2>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card bg-dark">
-                        <div class="card-body">
-                            <h5 class="card-title">Time Impact</h5>
-                            <h2 class="quantum-value">{{ quantum.time_impact_days }} days</h2>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="bg-dark p-4 rounded">
-                <h5 class="mb-3">Calculation Methodology</h5>
-                <div style="white-space: pre-line;">{{ quantum.calculation_method }}</div>
-            </div>
-        {% else %}
-            <div class="text-center py-4">
-                <i class="fas fa-calculator fa-3x mb-3 text-muted"></i>
-                <h5>No Quantum Assessment Available</h5>
-                <p class="text-muted">Upload project records and run analysis to calculate quantum</p>
-                {% if not pdf_download %}
-                <a href="{{ url_for('view_project_records', project_id=project.id) }}" class="btn btn-primary mt-2">
-                    <i class="fas fa-search me-1"></i> Analyze Records
-                </a>
-                {% endif %}
-            </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Counterclaims Section -->
-<div class="card shadow-sm mb-4 fade-in-element report-section">
-    <div class="card-header bg-danger text-white">
-        <h5 class="mb-0"><i class="fas fa-gavel me-2"></i>Counterclaims & Defenses</h5>
-    </div>
-    <div class="card-body">
-        {% if counterclaim %}
-            <div class="bg-dark p-4 rounded">
-                <div style="white-space: pre-line;">{{ counterclaim.counterclaim_summary }}</div>
-            </div>
-        {% else %}
-            <div class="text-center py-4">
-                <i class="fas fa-gavel fa-3x mb-3 text-muted"></i>
-                <h5>No Counterclaim Analysis Available</h5>
-                <p class="text-muted">Upload project records and run analysis to evaluate counterclaims</p>
-                {% if not pdf_download %}
-                <a href="{{ url_for('view_project_records', project_id=project.id) }}" class="btn btn-primary mt-2">
-                    <i class="fas fa-search me-1"></i> Analyze Records
-                </a>
-                {% endif %}
-            </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Dispute Strategy Section -->
-<div class="card shadow-sm mb-4 fade-in-element report-section">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0"><i class="fas fa-chess me-2"></i>Dispute Strategy Recommendation</h5>
-    </div>
-    <div class="card-body">
-        {% if dispute_strategy %}
-            <div class="bg-dark p-4 rounded">
-                <div style="white-space: pre-line;">{{ dispute_strategy }}</div>
-            </div>
-        {% else %}
-            <div class="text-center py-4">
-                <i class="fas fa-chess fa-3x mb-3 text-muted"></i>
-                <h5>No Dispute Strategy Available</h5>
-                <p class="text-muted">Complete entitlement and quantum analysis to generate strategy</p>
-                {% if not pdf_download %}
-                <a href="{{ url_for('view_project_records', project_id=project.id) }}" class="btn btn-primary mt-2">
-                    <i class="fas fa-search me-1"></i> Analyze Records
-                </a>
-                {% endif %}
-            </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Project Documents Section -->
-<div class="card shadow-sm mb-4 fade-in-element report-section">
-    <div class="card-header bg-secondary text-white">
-        <h5 class="mb-0"><i class="fas fa-folder me-2"></i>Project Documents Summary</h5>
-    </div>
-    <div class="card-body p-0">
-        {% if documents or records %}
+    {% if risks %}
+    <div class="card mt-4 bg-dark">
+        <div class="card-body">
+            <h2 class="card-title">Identified Risks</h2>
             <div class="table-responsive">
-                <table class="table mb-0">
+                <table class="table table-dark table-striped">
                     <thead>
                         <tr>
-                            <th scope="col">Document Type</th>
-                            <th scope="col">Filename</th>
-                            <th scope="col">Upload Date</th>
+                            <th>Risk Category</th>
+                            <th>Risk Score</th>
+                            <th>Clause Text</th>
+                            <th>Explanation</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for document in documents %}
-                            <tr>
-                                <td><span class="badge bg-primary">Contract</span></td>
-                                <td>{{ document.filename }}</td>
-                                <td>{{ document.uploaded_at.strftime('%Y-%m-%d') }}</td>
-                            </tr>
-                        {% endfor %}
-                        
-                        {% for record in records %}
-                            <tr>
-                                <td>
-                                    <span class="badge 
-                                        {% if record.record_type == 'schedule' %}bg-success
-                                        {% elif record.record_type == 'log' %}bg-info
-                                        {% elif record.record_type == 'correspondence' %}bg-warning
-                                        {% elif record.record_type == 'change_order' %}bg-danger
-                                        {% elif record.record_type == 'invoice' %}bg-secondary
-                                        {% else %}bg-light text-dark{% endif %}">
-                                        {{ record.record_type|title }}
-                                    </span>
-                                </td>
-                                <td>{{ record.filename }}</td>
-                                <td>{{ record.uploaded_at.strftime('%Y-%m-%d') }}</td>
-                            </tr>
+                        {% for risk in risks %}
+                        <tr>
+                            <td>{{ risk.risk_category }}</td>
+                            <td>{{ risk.risk_score }}</td>
+                            <td>{{ risk.clause_text }}</td>
+                            <td>{{ risk.explanation }}</td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-        {% else %}
-            <div class="text-center py-4">
-                <i class="fas fa-folder-open fa-3x mb-3 text-muted"></i>
-                <h5>No Documents Available</h5>
-                <p class="text-muted">Upload contract documents and project records</p>
-                {% if not pdf_download %}
-                <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-primary mt-2">
-                    <i class="fas fa-upload me-1"></i> Upload Documents
-                </a>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if entitlements %}
+    <div class="card mt-4 bg-dark">
+        <div class="card-body">
+            <h2 class="card-title">Entitlements</h2>
+            {% for entitlement in entitlements %}
+                {% if entitlement.findings %}
+                <div class="mb-4">
+                    <pre class="bg-dark text-light p-3 border border-secondary">{{ entitlement.findings }}</pre>
+                </div>
                 {% endif %}
+            {% endfor %}
+            <div class="table-responsive">
+                <table class="table table-dark table-striped">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Impact</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entitlement in entitlements %}
+                        <tr>
+                            <td>{{ entitlement.category or 'General' }}</td>
+                            <td>{{ entitlement.description or 'No detailed description available' }}</td>
+                            <td>{{ entitlement.impact or 'Impact not specified' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-        {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if quantum %}
+    <div class="card mt-4 bg-dark">
+        <div class="card-body">
+            <h2 class="card-title">Quantum Analysis</h2>
+            <table class="table table-dark">
+                <tr>
+                    <th style="width: 200px;">Cost Estimate</th>
+                    <td>${{ "%.2f"|format(quantum.cost_estimate) }}</td>
+                </tr>
+                <tr>
+                    <th>Time Impact</th>
+                    <td>{{ quantum.time_impact_days }} days</td>
+                </tr>
+                <tr>
+                    <th>Calculation Method</th>
+                    <td>{{ quantum.calculation_method or 'Not specified' }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if counterclaims %}
+    <div class="card mt-4 bg-dark">
+        <div class="card-body">
+            <h2 class="card-title">Counterclaims</h2>
+            {% for counterclaim in counterclaims %}
+                {% if counterclaim.counterclaim_summary %}
+                <div class="mb-4">
+                    <pre class="bg-dark text-light p-3 border border-secondary">{{ counterclaim.counterclaim_summary }}</pre>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{{ url_for('download_report', project_id=project.id) }}" class="btn btn-primary">
+            <i class="fas fa-download"></i> Download Report
+        </a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
     </div>
 </div>
-
-<!-- Conclusion Section -->
-<div class="card shadow-sm mb-4 fade-in-element report-section">
-    <div class="card-header bg-info text-white">
-        <h5 class="mb-0"><i class="fas fa-flag-checkered me-2"></i>Conclusion</h5>
-    </div>
-    <div class="card-body">
-        <p>
-            This claim report provides a comprehensive analysis of the project's contractual risks, 
-            entitlement, quantum, and potential counterclaims. The findings are based on analysis of 
-            {{ documents|length }} contract documents and {{ records|length }} project records.
-        </p>
-        
-        {% if quantum and entitlement %}
-            <p>
-                Based on the analysis, the claim has been valued at <strong>${{ "%.2f"|format(quantum.cost_estimate) }}</strong> 
-                with a time impact of <strong>{{ quantum.time_impact_days }} days</strong>. 
-                The recommended dispute resolution approach is outlined in the dispute strategy section above.
-            </p>
-        {% else %}
-            <p>
-                The claim analysis is incomplete. Additional documentation and analysis is required to 
-                provide a complete evaluation of the claim.
-            </p>
-        {% endif %}
-        
-        <p class="mb-0">
-            This report was generated on <strong>{{ current_date.strftime('%B %d, %Y') }}</strong> 
-            using AI-powered construction claim analysis technology.
-        </p>
-    </div>
-</div>
-
-{% if not pdf_download %}
-<!-- Action Buttons -->
-<div class="d-flex justify-content-between mb-4">
-    <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-outline-primary">
-        <i class="fas fa-arrow-left me-1"></i> Back to Project
-    </a>
-    <a href="{{ url_for('download_report', project_id=project.id) }}" class="btn btn-success">
-        <i class="fas fa-file-pdf me-1"></i> Download PDF Report
-    </a>
-</div>
-{% endif %}
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize Risk Categories Chart if data exists
-        const riskChartElement = document.getElementById('riskCategoryChart');
-        if (riskChartElement) {
-            const labels = JSON.parse(riskChartElement.dataset.labels || '[]');
-            const data = JSON.parse(riskChartElement.dataset.counts || '[]');
-            
-            if (labels.length > 0 && data.length > 0) {
-                new Chart(riskChartElement, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Number of Risks',
-                            data: data,
-                            backgroundColor: [
-                                'rgba(255, 99, 132, 0.6)',
-                                'rgba(54, 162, 235, 0.6)',
-                                'rgba(255, 206, 86, 0.6)',
-                                'rgba(75, 192, 192, 0.6)',
-                                'rgba(153, 102, 255, 0.6)',
-                                'rgba(255, 159, 64, 0.6)',
-                                'rgba(199, 199, 199, 0.6)',
-                                'rgba(83, 102, 255, 0.6)',
-                                'rgba(40, 159, 64, 0.6)'
-                            ],
-                            borderColor: [
-                                'rgba(255, 99, 132, 1)',
-                                'rgba(54, 162, 235, 1)',
-                                'rgba(255, 206, 86, 1)',
-                                'rgba(75, 192, 192, 1)',
-                                'rgba(153, 102, 255, 1)',
-                                'rgba(255, 159, 64, 1)',
-                                'rgba(199, 199, 199, 1)',
-                                'rgba(83, 102, 255, 1)',
-                                'rgba(40, 159, 64, 1)'
-                            ],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    precision: 0
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        }
-    });
-</script>
 {% endblock %}
