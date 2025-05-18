@@ -2,6 +2,7 @@
 Flask
 Flask-Login
 Flask-SQLAlchemy
+Flask-WTF
 Werkzeug
 gunicorn
 
@@ -36,6 +37,6 @@ pandas
 bcrypt
 cryptography
 
-# Remove Windows specific packages
-# pywin32  # Removed as it's Windows-specific
-# pyreadline3  # Removed as it's Windows-specific
+# Forms and validation
+WTForms
+email_validator
