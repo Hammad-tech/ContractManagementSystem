@@ -2,7 +2,7 @@ modules = ["python-3.11"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["cairo", "fontconfig", "freetype", "gdk-pixbuf", "ghostscript", "glib", "gumbo", "harfbuzz", "jbig2dec", "libffi", "libjpeg_turbo", "mupdf", "openjpeg", "openssl", "pango", "pip", "postgresql", "swig", "xcbuild"]
+packages = ["cairo", "fontconfig", "freetype", "gdk-pixbuf", "ghostscript", "glib", "gumbo", "harfbuzz", "jbig2dec", "libffi", "libjpeg_turbo", "mupdf", "openjpeg", "openssl", "pango", "pip", "postgresql", "swig", "xcbuild", "python311Packages.pip", "python311Packages.gunicorn"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -26,7 +26,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app"
+args = "python3 -m pip install -r requirements.txt && gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app"
 waitForPort = 5000
 
 [[ports]]
