@@ -93,6 +93,69 @@ def load_user(user_id):
 # Create database tables within application context
 with app.app_context():
     db.create_all()
+    
+    # Auto-seed users on first run
+    def create_seed_users():
+        """Create seed users if no users exist in the database"""
+        try:
+            # Check if any users exist
+            user_count = User.query.count()
+            
+            if user_count == 0:
+                app.logger.info("No users found. Creating seed users...")
+                
+                # User data to seed
+                users_data = [
+                    {
+                        "username": "admin_user",
+                        "email": "admin@example.com",
+                        "password": "admin123",
+                        "role": "admin"
+                    },
+                    {
+                        "username": "owner_user",
+                        "email": "owner@example.com",
+                        "password": "owner123",
+                        "role": "owner"
+                    },
+                    {
+                        "username": "contractor_user",
+                        "email": "contractor@example.com",
+                        "password": "contractor123",
+                        "role": "contractor"
+                    }
+                ]
+                
+                for user_data in users_data:
+                    # Check if user already exists by email (double-check)
+                    existing_user = User.query.filter_by(email=user_data["email"]).first()
+                    
+                    if not existing_user:
+                        hashed_password = generate_password_hash(user_data["password"])
+                        new_user = User(
+                            username=user_data["username"],
+                            email=user_data["email"],
+                            password_hash=hashed_password,
+                            role=user_data["role"]
+                        )
+                        db.session.add(new_user)
+                        app.logger.info(f"Created {user_data['role']} user: {user_data['username']} ({user_data['email']})")
+                
+                db.session.commit()
+                app.logger.info("✅ Seed users created successfully!")
+                app.logger.info("Default login credentials:")
+                for user in users_data:
+                    app.logger.info(f"  - {user['role'].title()}: {user['email']} / {user['password']}")
+                    
+            else:
+                app.logger.info(f"Database already has {user_count} users. Skipping seed creation.")
+                
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error creating seed users: {str(e)}")
+    
+    # Run the seed function
+    create_seed_users()
 
 # Authentication routes
 @app.route('/')

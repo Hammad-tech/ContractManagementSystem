@@ -15,19 +15,19 @@ USERS_DATA = [
     {
         "username": "admin_user",
         "email": "admin@example.com",
-        "password": "adminpassword",
+        "password": "admin123",
         "role": "admin"
     },
     {
-        "username": "hammad",
+        "username": "owner_user",
         "email": "owner@example.com",
-        "password": "ownerpassword",
+        "password": "owner123",
         "role": "owner"
     },
     {
-        "username": "moeez",
+        "username": "contractor_user",
         "email": "contractor@example.com",
-        "password": "contractorpassword",
+        "password": "contractor123",
         "role": "contractor"
     }
 ]
