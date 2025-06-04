@@ -1,0 +1,439 @@
+{% extends 'base.html' %}
+
+{% block title %}Project Overview - {{ project.project_name }} - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="row align-items-center mb-4">
+        <div class="col-md-8">
+            <h1 class="mb-2">
+                <i class="fas fa-project-diagram me-2 text-primary"></i>{{ project.project_name }}
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('admin_dashboard') }}" class="text-decoration-none">
+                            <i class="fas fa-shield-alt me-1"></i>Admin Dashboard
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">Project Overview</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                </a>
+                <a href="{{ url_for('manage_users') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-users me-2"></i>Manage Users
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-file-contract fa-2x"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-1">{{ documents|length }}</h3>
+                                <small class="opacity-75">Documents</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-clipboard-list fa-2x"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-1">{{ records|length }}</h3>
+                                <small class="opacity-75">Project Records</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-exclamation-triangle fa-2x"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-1">{{ risks|length }}</h3>
+                                <small class="opacity-75">Risk Items</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-check-circle fa-2x"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-1">{{ project.status.title() }}</h3>
+                                <small class="opacity-75">Status</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Information & Risk Analysis Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0 d-flex align-items-center">
+                        <i class="fas fa-info-circle me-2 text-primary"></i>Project Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <h6 class="text-muted mb-2">
+                                    <i class="fas fa-project-diagram me-1"></i>Project Name
+                                </h6>
+                                <p class="h6 mb-0">{{ project.project_name }}</p>
+                            </div>
+                            <div class="mb-4">
+                                <h6 class="text-muted mb-2">
+                                    <i class="fas fa-calendar-alt me-1"></i>Created Date
+                                </h6>
+                                <p class="mb-0">{{ project.created_at.strftime('%B %d, %Y at %I:%M %p') }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <h6 class="text-muted mb-2">
+                                    <i class="fas fa-building me-1"></i>Project Owner
+                                </h6>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-success me-2 px-3 py-2">
+                                        <i class="fas fa-user-tie me-1"></i>{{ project.owner.username }}
+                                    </span>
+                                    <small class="text-muted">{{ project.owner.email }}</small>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <h6 class="text-muted mb-2">
+                                    <i class="fas fa-hard-hat me-1"></i>Project Contractor
+                                </h6>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-info me-2 px-3 py-2">
+                                        <i class="fas fa-hammer me-1"></i>{{ project.contractor.username }}
+                                    </span>
+                                    <small class="text-muted">{{ project.contractor.email }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0 d-flex align-items-center">
+                        <i class="fas fa-chart-pie me-2 text-primary"></i>Risk Overview
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-danger bg-opacity-10 rounded">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+                            <span class="fw-medium">High Risk</span>
+                        </div>
+                        <span class="badge bg-danger fs-6">
+                            {% set high_risks = [] %}
+                            {% for risk in risks %}
+                                {% if risk.risk_score >= 75 %}
+                                    {% set _ = high_risks.append(risk) %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ high_risks|length }}
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-warning bg-opacity-10 rounded">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-exclamation-circle text-warning me-2"></i>
+                            <span class="fw-medium">Medium Risk</span>
+                        </div>
+                        <span class="badge bg-warning fs-6">
+                            {% set medium_risks = [] %}
+                            {% for risk in risks %}
+                                {% if risk.risk_score >= 50 and risk.risk_score < 75 %}
+                                    {% set _ = medium_risks.append(risk) %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ medium_risks|length }}
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center p-3 bg-success bg-opacity-10 rounded">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <span class="fw-medium">Low Risk</span>
+                        </div>
+                        <span class="badge bg-success fs-6">
+                            {% set low_risks = [] %}
+                            {% for risk in risks %}
+                                {% if risk.risk_score < 50 %}
+                                    {% set _ = low_risks.append(risk) %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ low_risks|length }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Documents Section -->
+    {% if documents %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 d-flex align-items-center">
+                <i class="fas fa-file-contract me-2 text-primary"></i>Documents Overview
+                <span class="badge bg-primary ms-2">{{ documents|length }} files</span>
+            </h5>
+            <a href="{{ url_for('admin_view_project_documents', project_id=project.id) }}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-external-link-alt me-1"></i>View All
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="border-0">Document</th>
+                            <th class="border-0">Type</th>
+                            <th class="border-0">Uploaded By</th>
+                            <th class="border-0">Date</th>
+                            <th class="border-0">Size</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for document in documents[:5] %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-file-pdf text-danger me-2"></i>
+                                    <div>
+                                        <div class="fw-medium">{{ document.filename[:30] }}{% if document.filename|length > 30 %}...{% endif %}</div>
+                                        <small class="text-muted">{{ document.filename }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ document.document_type.title() }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if document.uploader.role == 'owner' else 'info' }}">
+                                    <i class="fas fa-{{ 'building' if document.uploader.role == 'owner' else 'hard-hat' }} me-1"></i>
+                                    {{ document.uploader.username }}
+                                </span>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ document.uploaded_at.strftime('%m/%d/%Y') }}</small>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ (document.extracted_text|length / 1024)|round(1) if document.extracted_text else 0 }} KB</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% if documents|length > 5 %}
+                <div class="text-center pt-2">
+                    <small class="text-muted">Showing 5 of {{ documents|length }} documents</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Project Records Section -->
+    {% if records %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 d-flex align-items-center">
+                <i class="fas fa-clipboard-list me-2 text-primary"></i>Project Records
+                <span class="badge bg-info ms-2">{{ records|length }} records</span>
+            </h5>
+            <a href="{{ url_for('admin_view_project_records', project_id=project.id) }}" class="btn btn-outline-info btn-sm">
+                <i class="fas fa-external-link-alt me-1"></i>View All
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="border-0">Record Type</th>
+                            <th class="border-0">File Name</th>
+                            <th class="border-0">Uploaded By</th>
+                            <th class="border-0">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records[:5] %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-primary px-3 py-2">
+                                    <i class="fas fa-folder me-1"></i>{{ record.record_type.title() }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-file text-primary me-2"></i>
+                                    <div>
+                                        <div class="fw-medium">{{ record.filename[:30] }}{% if record.filename|length > 30 %}...{% endif %}</div>
+                                        {% if record.filename|length > 30 %}
+                                            <small class="text-muted">{{ record.filename }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if record.uploader.role == 'owner' else 'info' }}">
+                                    <i class="fas fa-{{ 'building' if record.uploader.role == 'owner' else 'hard-hat' }} me-1"></i>
+                                    {{ record.uploader.username }}
+                                </span>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ record.uploaded_at.strftime('%m/%d/%Y') }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% if records|length > 5 %}
+                <div class="text-center pt-2">
+                    <small class="text-muted">Showing 5 of {{ records|length }} records</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Risk Analysis Section -->
+    {% if risks %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 d-flex align-items-center">
+                <i class="fas fa-exclamation-triangle me-2 text-primary"></i>Risk Analysis
+                <span class="badge bg-warning ms-2">{{ risks|length }} items</span>
+            </h5>
+            <a href="{{ url_for('view_risks', project_id=project.id) }}" class="btn btn-outline-warning btn-sm">
+                <i class="fas fa-external-link-alt me-1"></i>View All
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for risk in risks[:6] %}
+                <div class="col-md-6">
+                    <div class="card border-{{ 'danger' if risk.risk_score >= 8 else 'warning' if risk.risk_score >= 5 else 'success' }} h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="card-title mb-0 flex-grow-1">{{ risk.risk_category }}</h6>
+                                <span class="badge bg-{{ 'danger' if risk.risk_score >= 8 else 'warning' if risk.risk_score >= 5 else 'success' }} ms-2">
+                                    {{ risk.risk_score }}/10
+                                </span>
+                            </div>
+                            <p class="card-text text-muted small">
+                                {{ risk.clause_text[:80] }}{% if risk.clause_text|length > 80 %}...{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if risks|length > 6 %}
+            <div class="text-center pt-3">
+                <small class="text-muted">Showing 6 of {{ risks|length }} risk items</small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Empty State -->
+    {% if not documents and not records and not risks %}
+    <div class="card text-center py-5 shadow-sm">
+        <div class="card-body">
+            <i class="fas fa-inbox fa-4x text-muted mb-4"></i>
+            <h4 class="text-muted mb-3">No Project Activity Yet</h4>
+            <p class="text-muted mb-4">
+                This project doesn't have any documents, records, or analysis yet.<br>
+                The assigned owner and contractor will need to upload documents to begin the analysis process.
+            </p>
+            <div class="d-flex justify-content-center gap-2">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                </a>
+                <a href="{{ url_for('manage_users') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-users me-1"></i>Manage Users
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.fade-in-element {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.table tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.badge {
+    font-size: 0.75em;
+}
+</style>
+{% endblock %}

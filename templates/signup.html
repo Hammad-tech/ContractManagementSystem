@@ -38,6 +38,21 @@
                     </div>
                     
                     <div class="mb-3">
+                        <label for="{{ form.role.id }}" class="form-label">Role</label>
+                        {{ form.role(class="form-select" + (" is-invalid" if form.role.errors else "")) }}
+                        {% if form.role.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.role.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">
+                            <small><i class="fas fa-info-circle me-1"></i>Choose your role in the construction project</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
                         <label for="{{ form.password.id }}" class="form-label">Password</label>
                         {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Choose a password (min 8 characters)") }}
                         {% if form.password.errors %}

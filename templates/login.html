@@ -5,47 +5,110 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-6 col-lg-5">
-        <div class="card shadow-sm fade-in-element">
+        <div class="card shadow-sm">
             <div class="card-header bg-primary text-white text-center">
                 <h4 class="mb-0"><i class="fas fa-sign-in-alt me-2"></i>Login</h4>
             </div>
             <div class="card-body">
-                <form method="POST" novalidate>
-                    {{ form.hidden_tag() }}
-                    
-                    <div class="mb-3">
-                        <label for="{{ form.email.id }}" class="form-label">Email Address</label>
-                        {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), placeholder="Enter your email") }}
-                        {% if form.email.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.email.errors %}
-                                    {{ error }}
-                                {% endfor %}
+                <!-- Login Type Tabs -->
+                <ul class="nav nav-tabs justify-content-center mb-4" id="loginTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="user-tab" data-bs-toggle="tab" data-bs-target="#user-login" type="button" role="tab">
+                            <i class="fas fa-user me-2"></i>User Login
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="admin-tab" data-bs-toggle="tab" data-bs-target="#admin-login" type="button" role="tab">
+                            <i class="fas fa-shield-alt me-2"></i>Admin Login
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab Content -->
+                <div class="tab-content" id="loginTabContent">
+                    <!-- User Login Tab -->
+                    <div class="tab-pane fade show active" id="user-login" role="tabpanel">
+                        <form method="POST" novalidate>
+                            {{ form.hidden_tag() }}
+                            <input type="hidden" name="login_type" value="user">
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Email Address</label>
+                                {{ form.email(class="form-control", placeholder="your.email@example.com") }}
+                                {% if form.email.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.email.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
                             </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label for="{{ form.password.id }}" class="form-label">Password</label>
-                        {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Enter your password") }}
-                        {% if form.password.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.password.errors %}
-                                    {{ error }}
-                                {% endfor %}
+                            
+                            <div class="mb-4">
+                                <label class="form-label">Password</label>
+                                {{ form.password(class="form-control", placeholder="Enter your password") }}
+                                {% if form.password.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.password.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
                             </div>
-                        {% endif %}
+                            
+                            <div class="d-grid">
+                                {{ form.submit(class="btn btn-primary") }}
+                            </div>
+                        </form>
+                        
+                        <div class="text-center mt-3">
+                            <small>Need an account? Contact your administrator to create one.</small>
+                        </div>
                     </div>
-                    
-                    <div class="d-grid gap-2">
-                        {{ form.submit(class="btn btn-primary") }}
+
+                    <!-- Admin Login Tab -->
+                    <div class="tab-pane fade" id="admin-login" role="tabpanel">
+                        <form method="POST" novalidate>
+                            {{ form.hidden_tag() }}
+                            <input type="hidden" name="login_type" value="admin">
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Admin Email</label>
+                                <input type="email" name="email" class="form-control" placeholder="admin@example.com" required>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="form-label">Admin Password</label>
+                                <input type="password" name="password" class="form-control" placeholder="Enter admin password" required>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-warning text-dark">
+                                    <i class="fas fa-shield-alt me-2"></i>Login as Admin
+                                </button>
+                            </div>
+                        </form>
                     </div>
-                </form>
-            </div>
-            <div class="card-footer text-center">
-                <p class="mb-0">Don't have an account? <a href="{{ url_for('signup') }}">Sign Up</a></p>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add visual feedback for form submissions
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function() {
+            const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+            if (submitBtn) {
+                const originalText = submitBtn.innerHTML || submitBtn.value;
+                if (submitBtn.tagName === 'BUTTON') {
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Logging in...';
+                } else {
+                    submitBtn.value = 'Logging in...';
+                }
+                submitBtn.disabled = true;
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

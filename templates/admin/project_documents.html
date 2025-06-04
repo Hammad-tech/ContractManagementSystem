@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}Project Documents - {{ project.project_name }} - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row align-items-center mb-4">
+        <div class="col-md-8">
+            <h1 class="mb-2">
+                <i class="fas fa-file-contract me-2 text-primary"></i>Project Documents
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('admin_dashboard') }}" class="text-decoration-none">
+                            <i class="fas fa-shield-alt me-1"></i>Admin Dashboard
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('admin_project_overview', project_id=project.id) }}" class="text-decoration-none">
+                            {{ project.project_name }}
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">Project Documents</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <a href="{{ url_for('admin_project_overview', project_id=project.id) }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Overview
+            </a>
+        </div>
+    </div>
+
+    <!-- Project Documents -->
+    {% if documents %}
+    <div class="card shadow-sm">
+        <div class="card-header bg-transparent">
+            <h5 class="mb-0 d-flex align-items-center">
+                <i class="fas fa-file-contract me-2 text-primary"></i>Project Documents
+                <span class="badge bg-primary ms-2">{{ documents|length }} files</span>
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Document</th>
+                            <th>Type</th>
+                            <th>Uploaded By</th>
+                            <th>Upload Date</th>
+                            <th>Risk Analysis</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for document in documents %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-file-pdf text-danger me-2"></i>
+                                    <div>
+                                        <div class="fw-medium">{{ document.filename }}</div>
+                                        <small class="text-muted">{{ (document.extracted_text|length / 1024)|round(1) if document.extracted_text else 0 }} KB extracted</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ document.document_type.title() }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if document.uploader.role == 'owner' else 'info' }}">
+                                    <i class="fas fa-{{ 'building' if document.uploader.role == 'owner' else 'hard-hat' }} me-1"></i>
+                                    {{ document.uploader.username }} ({{ document.uploader.role.title() }})
+                                </span>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ document.uploaded_at.strftime('%B %d, %Y at %I:%M %p') }}</small>
+                            </td>
+                            <td>
+                                {% set doc_risks = document.risks %}
+                                {% if doc_risks %}
+                                    <span class="badge bg-warning">{{ doc_risks|length }} risks identified</span>
+                                {% else %}
+                                    <span class="badge bg-success">No risks identified</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('view_document', project_id=project.id, document_id=document.id) }}" 
+                                       class="btn btn-sm btn-outline-info">
+                                        <i class="fas fa-eye me-1"></i>View
+                                    </a>
+                                    <a href="{{ url_for('download_document', project_id=project.id, document_id=document.id) }}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-download me-1"></i>Download
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card text-center py-5 shadow-sm">
+        <div class="card-body">
+            <i class="fas fa-file-contract fa-4x text-muted mb-4"></i>
+            <h4 class="text-muted mb-3">No Project Documents</h4>
+            <p class="text-muted mb-4">
+                No documents have been uploaded yet.<br>
+                The assigned owner and contractor can upload documents to populate this section.
+            </p>
+            <a href="{{ url_for('admin_project_overview', project_id=project.id) }}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-1"></i>Back to Overview
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

@@ -1,134 +1,428 @@
 {% extends "base.html" %}
 
+{% block title %}Project Report - {{ project.project_name }}{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <h1>Project Report: {{ project.project_name }}</h1>
-    
-    <div class="card mt-4 bg-dark">
-        <div class="card-body">
-            <h2 class="card-title">Project Details</h2>
-            <table class="table table-dark">
-                <tr>
-                    <th style="width: 200px;">Project Name</th>
-                    <td>{{ project.project_name }}</td>
-                </tr>
-                <tr>
-                    <th>Created At</th>
-                    <td>{{ project.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                </tr>
-            </table>
-        </div>
-    </div>
+<div class="container-fluid bg-dark text-light min-vh-100 py-4">
+    <div class="row justify-content-center">
+        <div class="col-12">
+            <div class="text-center mb-4">
+                <h1 class="display-4 text-primary">Project Report</h1>
+                <h2 class="text-muted">{{ project.project_name }}</h2>
+                <p class="lead">Classification: Internal</p>
+            </div>
 
-    {% if risks %}
-    <div class="card mt-4 bg-dark">
-        <div class="card-body">
-            <h2 class="card-title">Identified Risks</h2>
-            <div class="table-responsive">
-                <table class="table table-dark table-striped">
-                    <thead>
+            <div class="card mt-4 bg-dark">
+                <div class="card-body">
+                    <h2 class="card-title">Project Details</h2>
+                    <table class="table table-dark">
                         <tr>
-                            <th>Risk Category</th>
-                            <th>Risk Score</th>
-                            <th>Clause Text</th>
-                            <th>Explanation</th>
+                            <th style="width: 200px;">Project Name</th>
+                            <td>{{ project.project_name }}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {% for risk in risks %}
                         <tr>
-                            <td>{{ risk.risk_category }}</td>
-                            <td>{{ risk.risk_score }}</td>
-                            <td>{{ risk.clause_text }}</td>
-                            <td>{{ risk.explanation }}</td>
+                            <th>Created At</th>
+                            <td>{{ project.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                         </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                    </table>
+                </div>
+            </div>
+
+            {% if risks %}
+            <div class="card mt-4 bg-dark">
+                <div class="card-body">
+                    <h2 class="card-title">Identified Risks</h2>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Risk Category</th>
+                                    <th>Risk Score</th>
+                                    <th>Clause Text</th>
+                                    <th>Explanation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for risk in risks %}
+                                <tr>
+                                    <td>{{ risk.risk_category }}</td>
+                                    <td>{{ risk.risk_score }}</td>
+                                    <td>{{ risk.clause_text }}</td>
+                                    <td>{{ risk.explanation }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if entitlements %}
+            <div class="card mt-4 bg-dark">
+                <div class="card-body">
+                    <h2 class="card-title">Entitlements</h2>
+                    {% for entitlement in entitlements %}
+                        {% if entitlement.findings %}
+                        <div class="mb-4">
+                            <pre class="bg-dark text-light p-3 border border-secondary">{{ entitlement.findings }}</pre>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Description</th>
+                                    <th>Impact</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entitlement in entitlements %}
+                                <tr>
+                                    <td>{{ entitlement.category or 'General' }}</td>
+                                    <td>{{ entitlement.description or 'No detailed description available' }}</td>
+                                    <td>{{ entitlement.impact or 'Impact not specified' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if quantum %}
+            <div class="card mt-4 bg-dark">
+                <div class="card-body">
+                    <h2 class="card-title">Quantum Analysis</h2>
+                    <table class="table table-dark">
+                        <tr>
+                            <th style="width: 200px;">Cost Estimate</th>
+                            <td>${{ "%.2f"|format(quantum.cost_estimate) }}</td>
+                        </tr>
+                        <tr>
+                            <th>Time Impact</th>
+                            <td>{{ quantum.time_impact_days }} days</td>
+                        </tr>
+                        <tr>
+                            <th>Calculation Method</th>
+                            <td>{{ quantum.calculation_method or 'Not specified' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if counterclaims %}
+            <div class="card mt-4 bg-dark">
+                <div class="card-body">
+                    <h2 class="card-title">Counterclaims</h2>
+                    {% for counterclaim in counterclaims %}
+                        {% if counterclaim.counterclaim_summary %}
+                        <div class="mb-4">
+                            <pre class="bg-dark text-light p-3 border border-secondary">{{ counterclaim.counterclaim_summary }}</pre>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Claims Summary Table - Moved to bottom -->
+            {% if claims %}
+            <div class="card mt-5 bg-dark">
+                <div class="card-body">
+                    <h2 class="card-title">Claims Summary</h2>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped">
+                            <thead class="table-primary">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Claim ID</th>
+                                    <th>Claim Type</th>
+                                    <th>Date Notified</th>
+                                    <th>Claimant</th>
+                                    <th>Description</th>
+                                    <th>Reference Documents</th>
+                                    <th>Status</th>
+                                    <th>Amount Claimed (USD)</th>
+                                    <th>Time Extension Requested</th>
+                                    <th>Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for claim in claims %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td><strong>{{ claim.claim_id }}</strong></td>
+                                    <td>{{ claim.claim_type }}</td>
+                                    <td>{{ claim.date_notified.strftime('%d-%b-%y') }}</td>
+                                    <td>{{ claim.claimant }}</td>
+                                    <td>{{ claim.description }}</td>
+                                    <td>
+                                        {% if claim.reference_documents %}
+                                            <!-- Show as clickable documents that open in modals -->
+                                            {% set documents = claim.reference_documents.split(',') %}
+                                            {% for doc in documents %}
+                                                <a href="#" class="text-primary d-block reference-doc-link" 
+                                                   data-filename="{{ doc.strip() }}" 
+                                                   data-project-id="{{ project.id }}"
+                                                   title="Click to view document">{{ doc.strip() }}</a>
+                                            {% endfor %}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if claim.status == 'Approved' %}
+                                            <span class="badge bg-success">{{ claim.status }}</span>
+                                        {% elif claim.status == 'Rejected' %}
+                                            <span class="badge bg-danger">{{ claim.status }}</span>
+                                        {% elif claim.status == 'Active' %}
+                                            <span class="badge bg-info">{{ claim.status }}</span>
+                                        {% elif claim.status == 'Disputed' %}
+                                            <span class="badge bg-warning">{{ claim.status }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ claim.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if claim.amount_claimed %}
+                                            ${{ "{:,.2f}".format(claim.amount_claimed) }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if claim.time_extension_requested %}
+                                            {{ claim.time_extension_requested }} days
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ claim.remarks or 'N/A' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="mt-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <a href="{{ url_for('download_report', project_id=project.id) }}" class="btn btn-primary me-2">
+                            <i class="fas fa-download"></i> Download Report
+                        </a>
+                        {% if claims %}
+                        <a href="{{ url_for('download_claims_summary', project_id=project.id) }}" class="btn btn-info me-2">
+                            <i class="fas fa-file-pdf"></i> Download Claims Summary
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </a>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <!-- Formal Claim Letters Section - Moved to end -->
+                        {% if claims %}
+                        <div class="dropdown">
+                            <button class="btn btn-warning dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-file-pdf me-2"></i>Download Claim Letters
+                            </button>
+                            <ul class="dropdown-menu">
+                                {% for claim in claims %}
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('generate_claim_letter', project_id=project.id, claim_id=claim.id) }}">
+                                        <i class="fas fa-download me-1"></i>Claim {{ claim.claim_id }} - {{ claim.claim_type }}
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    {% endif %}
-
-    {% if entitlements %}
-    <div class="card mt-4 bg-dark">
-        <div class="card-body">
-            <h2 class="card-title">Entitlements</h2>
-            {% for entitlement in entitlements %}
-                {% if entitlement.findings %}
-                <div class="mb-4">
-                    <pre class="bg-dark text-light p-3 border border-secondary">{{ entitlement.findings }}</pre>
-                </div>
-                {% endif %}
-            {% endfor %}
-            <div class="table-responsive">
-                <table class="table table-dark table-striped">
-                    <thead>
-                        <tr>
-                            <th>Category</th>
-                            <th>Description</th>
-                            <th>Impact</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for entitlement in entitlements %}
-                        <tr>
-                            <td>{{ entitlement.category or 'General' }}</td>
-                            <td>{{ entitlement.description or 'No detailed description available' }}</td>
-                            <td>{{ entitlement.impact or 'Impact not specified' }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    {% if quantum %}
-    <div class="card mt-4 bg-dark">
-        <div class="card-body">
-            <h2 class="card-title">Quantum Analysis</h2>
-            <table class="table table-dark">
-                <tr>
-                    <th style="width: 200px;">Cost Estimate</th>
-                    <td>${{ "%.2f"|format(quantum.cost_estimate) }}</td>
-                </tr>
-                <tr>
-                    <th>Time Impact</th>
-                    <td>{{ quantum.time_impact_days }} days</td>
-                </tr>
-                <tr>
-                    <th>Calculation Method</th>
-                    <td>{{ quantum.calculation_method or 'Not specified' }}</td>
-                </tr>
-            </table>
-        </div>
-    </div>
-    {% endif %}
-
-    {% if counterclaims %}
-    <div class="card mt-4 bg-dark">
-        <div class="card-body">
-            <h2 class="card-title">Counterclaims</h2>
-            {% for counterclaim in counterclaims %}
-                {% if counterclaim.counterclaim_summary %}
-                <div class="mb-4">
-                    <pre class="bg-dark text-light p-3 border border-secondary">{{ counterclaim.counterclaim_summary }}</pre>
-                </div>
-                {% endif %}
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <div class="mt-4">
-        <a href="{{ url_for('download_report', project_id=project.id) }}" class="btn btn-primary">
-            <i class="fas fa-download"></i> Download Report
-        </a>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Back to Dashboard
-        </a>
     </div>
 </div>
+
+<!-- Document Viewer Modal -->
+<div class="modal fade" id="documentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-search me-2"></i>Reference File Search
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="documentModalBody">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Searching for document...</p>
+                </div>
+            </div>
+            <div class="modal-footer" id="documentModalFooter" style="display: none;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle reference document clicks
+    document.querySelectorAll('.reference-doc-link').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const filename = this.getAttribute('data-filename');
+            const projectId = this.getAttribute('data-project-id');
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('documentModal'));
+            modal.show();
+            
+            // Reset modal content
+            document.getElementById('documentModalBody').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Searching for document: ${filename}</p>
+                </div>
+            `;
+            document.getElementById('documentModalFooter').style.display = 'none';
+            
+            // Search for document
+            fetch(`/project/${projectId}/find-document?filename=${encodeURIComponent(filename)}`)
+                .then(response => {
+                    console.log('API Response status:', response.status);
+                    console.log('API Response headers:', response.headers);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('API Response data:', data);
+                    const modalBody = document.getElementById('documentModalBody');
+                    const modalFooter = document.getElementById('documentModalFooter');
+                    
+                    if (data.found) {
+                        if (data.exact_match !== false) {
+                            // Exact match found
+                            let fileTypeLabel = data.file_type === 'record' ? 'Project Record' : 'Contract Document';
+                            let fileTypeIcon = data.file_type === 'record' ? 'fa-folder-open' : 'fa-file-contract';
+                            let recordTypeInfo = data.record_type ? ` (${data.record_type})` : '';
+                            
+                            modalBody.innerHTML = `
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle me-2"></i>${fileTypeLabel} found!
+                                </div>
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <i class="fas ${fileTypeIcon} me-2"></i>${data.filename}${recordTypeInfo}
+                                        </h6>
+                                        <p class="card-text">This ${fileTypeLabel.toLowerCase()} is available in the project.</p>
+                                        <div class="btn-group">
+                                            ${data.view_url ? `<a href="${data.view_url}" class="btn btn-primary" target="_blank">
+                                                <i class="fas fa-eye me-1"></i>View Document
+                                            </a>` : ''}
+                                            <a href="${data.download_url}" class="btn btn-outline-primary">
+                                                <i class="fas fa-download me-1"></i>Download
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            // Partial matches found
+                            let matchesHtml = '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>Similar files found based on content analysis:</div>';
+                            data.matches.forEach(function(match) {
+                                let fileTypeLabel = match.file_type === 'record' ? 'Project Record' : 'Contract Document';
+                                let fileTypeIcon = match.file_type === 'record' ? 'fa-folder-open' : 'fa-file-contract';
+                                let recordTypeInfo = match.record_type ? ` (${match.record_type})` : '';
+                                let fileTypeBadge = match.file_type === 'record' ? '<span class="badge bg-info ms-2">Record</span>' : '<span class="badge bg-primary ms-2">Contract</span>';
+                                
+                                // Add match confidence indicator
+                                let matchScore = match.match_score || 0;
+                                let confidenceBadge = '';
+                                let confidenceColor = 'secondary';
+                                
+                                if (matchScore >= 80) {
+                                    confidenceBadge = 'High Match';
+                                    confidenceColor = 'success';
+                                } else if (matchScore >= 60) {
+                                    confidenceBadge = 'Good Match';
+                                    confidenceColor = 'warning';
+                                } else {
+                                    confidenceBadge = 'Possible Match';
+                                    confidenceColor = 'info';
+                                }
+                                
+                                matchesHtml += `
+                                    <div class="card mb-2">
+                                        <div class="card-body">
+                                            <h6 class="card-title">
+                                                <i class="fas ${fileTypeIcon} me-2"></i>${match.filename}${recordTypeInfo}${fileTypeBadge}
+                                                <span class="badge bg-${confidenceColor} ms-2">${confidenceBadge}</span>
+                                            </h6>
+                                            <small class="text-muted">Matched based on content similarity (${Math.round(matchScore)}% confidence)</small>
+                                            <div class="btn-group btn-group-sm mt-2">
+                                                ${match.view_url ? `<a href="${match.view_url}" class="btn btn-primary" target="_blank">
+                                                    <i class="fas fa-eye me-1"></i>View
+                                                </a>` : ''}
+                                                <a href="${match.download_url}" class="btn btn-outline-primary">
+                                                    <i class="fas fa-download me-1"></i>Download
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            modalBody.innerHTML = matchesHtml;
+                        }
+                    } else {
+                        modalBody.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>File not found
+                            </div>
+                            <p>The file "${filename}" could not be found in this project.</p>
+                            <p class="text-muted">This could mean:</p>
+                            <ul class="text-muted">
+                                <li>The document or record hasn't been uploaded yet</li>
+                                <li>The filename has changed</li>
+                                <li>It's referenced from external sources</li>
+                                <li>It's stored in a different project</li>
+                            </ul>
+                        `;
+                    }
+                    
+                    modalFooter.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error searching for document:', error);
+                    document.getElementById('documentModalBody').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>Error searching for document
+                        </div>
+                        <p>An error occurred while searching for the document. Please try again.</p>
+                    `;
+                    document.getElementById('documentModalFooter').style.display = 'block';
+                });
+        });
+    });
+});
+</script>
+
 {% endblock %}

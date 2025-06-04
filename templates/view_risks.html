@@ -15,18 +15,42 @@
 <div class="row mb-4">
     <div class="col-md-7">
         <h1 class="mb-2">Risk Analysis</h1>
-        <p class="lead">Contract risk assessment and categorization</p>
+        {% if current_user.role == 'admin' %}
+            <p class="lead">Contract risk assessment from all perspectives</p>
+        {% else %}
+            <p class="lead">Contract risk assessment from {{ current_user.role.title() }}'s perspective</p>
+        {% endif %}
     </div>
     <div class="col-md-5 text-md-end d-flex flex-wrap justify-content-md-end gap-2">
+        {% if current_user.role != 'admin' %}
         <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-outline-primary">
             <i class="fas fa-upload me-1"></i> Upload Documents
         </a>
+        {% endif %}
+        {% if current_user.role == 'admin' %}
+        <a href="{{ url_for('admin_view_project_records', project_id=project.id) }}" class="btn btn-info">
+            <i class="fas fa-folder-open me-1"></i> View Records
+        </a>
+        {% else %}
         <a href="{{ url_for('view_project_records', project_id=project.id) }}" class="btn btn-info">
             <i class="fas fa-folder-open me-1"></i> View Records
         </a>
+        {% endif %}
         <a href="{{ url_for('generate_report', project_id=project.id) }}" class="btn btn-success">
             <i class="fas fa-file-alt me-1"></i> View Report
         </a>
+        {% if risks %}
+        <a href="{{ url_for('download_risks_report', project_id=project.id) }}" class="btn btn-warning">
+            <i class="fas fa-file-pdf me-1"></i> Download Risks Report
+        </a>
+        {% endif %}
+        {% if current_user.role == 'admin' %}
+        <form method="POST" action="{{ url_for('regenerate_risks', project_id=project.id) }}" class="d-inline">
+            <button type="submit" class="btn btn-outline-warning" onclick="return confirm('This will regenerate risk analysis from all role perspectives. Continue?')">
+                <i class="fas fa-sync-alt me-1"></i> Regenerate All Risks
+            </button>
+        </form>
+        {% endif %}
     </div>
 </div>
 
@@ -129,6 +153,9 @@
                         <tr>
                             <th>Risk Category</th>
                             <th class="text-center">Score</th>
+                            {% if current_user.role == 'admin' %}
+                            <th>Perspective</th>
+                            {% endif %}
                             <th>Source Document</th>
                             <th>Clause</th>
                             <th class="text-center">Actions</th>
@@ -148,6 +175,14 @@
                                         {{ risk.risk_score }}
                                     </div>
                                 </td>
+                                {% if current_user.role == 'admin' %}
+                                <td>
+                                    <span class="badge bg-{{ 'success' if risk.user_role == 'owner' else ('info' if risk.user_role == 'contractor' else 'secondary') }}">
+                                        <i class="fas fa-{{ 'building' if risk.user_role == 'owner' else ('hard-hat' if risk.user_role == 'contractor' else 'shield-alt') }} me-1"></i>
+                                        {{ risk.user_role.title() }}
+                                    </span>
+                                </td>
+                                {% endif %}
                                 <td class="text-truncate" style="max-width: 150px;" title="{{ document.filename }}">
                                     <a href="{{ url_for('view_document', project_id=project.id, document_id=document.id) }}">
                                         {{ document.filename }}

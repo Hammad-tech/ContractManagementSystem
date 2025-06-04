@@ -5,12 +5,17 @@
 {% block content %}
 <div class="row align-items-center mb-4">
     <div class="col-md-8">
-        <h1 class="mb-3 mb-md-0"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h1>
-    </div>
-    <div class="col-md-4 text-md-end">
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newProjectModal">
-            <i class="fas fa-plus me-1"></i> New Project
-        </button>
+        <h1 class="mb-3 mb-md-0">
+            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+        </h1>
+        <p class="text-muted">
+            Welcome, {{ current_user.username }}! 
+            {% if current_user.role == 'owner' %}
+                <span class="badge bg-info"><i class="fas fa-user-tie me-1"></i>Project Owner</span>
+            {% elif current_user.role == 'contractor' %}
+                <span class="badge bg-warning"><i class="fas fa-hard-hat me-1"></i>Contractor</span>
+            {% endif %}
+        </p>
     </div>
 </div>
 
@@ -20,7 +25,7 @@
             <div class="col fade-in-element">
                 <div class="card h-100 dashboard-card shadow-sm">
                     <div class="card-header bg-dark d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 text-truncate" title="{{ project.project_name }}">
+                        <h5 class="mb-0 text-truncate text-white" title="{{ project.project_name }}">
                             {{ project.project_name }}
                         </h5>
                         <div class="dropdown">
@@ -34,8 +39,13 @@
                                     </a>
                                 </li>
                                 <li>
+                                    <a class="dropdown-item" href="{{ url_for('view_project_documents', project_id=project.id) }}">
+                                        <i class="fas fa-file-alt me-1"></i> View Documents
+                                    </a>
+                                </li>
+                                <li>
                                     <a class="dropdown-item" href="{{ url_for('view_project_records', project_id=project.id) }}">
-                                        <i class="fas fa-file-alt me-1"></i> View Project Records
+                                        <i class="fas fa-folder-open me-1"></i> View Project Records
                                     </a>
                                 </li>
                                 <li>
@@ -48,13 +58,10 @@
                                         <i class="fas fa-file-pdf me-1"></i> Generate Report
                                     </a>
                                 </li>
-                                <li><hr class="dropdown-divider"></li>
                                 <li>
-                                    <form action="{{ url_for('delete_project', project_id=project.id) }}" method="POST" class="d-inline">
-                                        <button type="submit" class="dropdown-item text-danger delete-project-btn">
-                                            <i class="fas fa-trash-alt me-1"></i> Delete Project
-                                        </button>
-                                    </form>
+                                    <a class="dropdown-item" href="{{ url_for('chatbot', project_id=project.id) }}">
+                                        <i class="fas fa-comments me-1"></i> AI Assistant
+                                    </a>
                                 </li>
                             </ul>
                         </div>
@@ -64,18 +71,35 @@
                             <small><i class="fas fa-calendar-alt me-1"></i> Created on {{ project.created_at.strftime('%B %d, %Y') }}</small>
                         </div>
                         
-                        <div class="d-grid gap-2">
-                            <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-outline-primary">
-                                <i class="fas fa-upload me-1"></i> Upload Documents
-                            </a>
-                            <a href="{{ url_for('chatbot', project_id=project.id) }}" class="btn btn-outline-info">
-                                <i class="fas fa-comments me-1"></i> Project Chatbot
+                        <!-- Project Participants -->
+                        <div class="mb-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fas fa-user-tie me-2 text-info"></i>
+                                <small class="text-muted">Owner: {{ project.owner.username }}</small>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-hard-hat me-2 text-warning"></i>
+                                <small class="text-muted">Contractor: {{ project.contractor.username }}</small>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mt-3">
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('view_project_documents', project_id=project.id) }}" class="btn btn-outline-light btn-sm">
+                                    <i class="fas fa-file-alt me-1"></i> Documents
+                                </a>
+                                <a href="{{ url_for('view_project_records', project_id=project.id) }}" class="btn btn-outline-light btn-sm">
+                                    <i class="fas fa-folder-open me-1"></i> Records
+                                </a>
+                            </div>
+                            <a href="{{ url_for('chatbot', project_id=project.id) }}" class="btn btn-info btn-sm">
+                                <i class="fas fa-robot me-1"></i> AI Assistant
                             </a>
                         </div>
                     </div>
                     <div class="card-footer bg-dark d-flex justify-content-between align-items-center">
                         <a href="{{ url_for('generate_report', project_id=project.id) }}" class="btn btn-sm btn-success">
-                            <i class="fas fa-file-alt me-1"></i> View Report
+                            <i class="fas fa-chart-line me-1"></i> View Analysis
                         </a>
                         <span class="badge bg-primary">
                             <i class="fas fa-file me-1"></i> 
@@ -90,44 +114,37 @@
     <div class="card text-center py-5 fade-in-element">
         <div class="card-body">
             <i class="fas fa-folder-open fa-4x mb-3 text-muted"></i>
-            <h4>No Projects Found</h4>
-            <p class="text-muted">Get started by creating your first project</p>
-            <button type="button" class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#newProjectModal">
-                <i class="fas fa-plus me-1"></i> Create New Project
-            </button>
+            <h4>No Projects Assigned</h4>
+            <p class="text-muted">
+                {% if current_user.role == 'owner' %}
+                    You haven't been assigned to any projects as an owner yet. Contact your administrator to get assigned to projects.
+                {% elif current_user.role == 'contractor' %}
+                    You haven't been assigned to any projects as a contractor yet. Contact your administrator to get assigned to projects.
+                {% endif %}
+            </p>
+            <p class="text-muted">
+                <small><i class="fas fa-info-circle me-1"></i>Only administrators can create new projects.</small>
+            </p>
         </div>
     </div>
 {% endif %}
 
-<!-- New Project Modal -->
-<div class="modal fade" id="newProjectModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="fas fa-folder-plus me-2"></i>Create New Project</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form method="POST">
-                {{ form.hidden_tag() }}
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="{{ form.project_name.id }}" class="form-label">Project Name</label>
-                        {{ form.project_name(class="form-control" + (" is-invalid" if form.project_name.errors else ""), placeholder="Enter project name") }}
-                        {% if form.project_name.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.project_name.errors %}
-                                    {{ error }}
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    {{ form.submit(class="btn btn-primary") }}
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<style>
+.fade-in-element {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.dashboard-card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+}
+</style>
 {% endblock %}

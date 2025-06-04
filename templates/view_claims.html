@@ -1,0 +1,390 @@
+{% extends 'base.html' %}
+
+{% block title %}Claims - {{ project.project_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="text-primary mb-1">
+                <i class="fas fa-gavel me-2"></i>Generated Claims
+            </h2>
+            <p class="text-muted mb-0">{{ project.project_name }}</p>
+            <small class="text-info">
+                <i class="fas fa-info-circle me-1"></i>
+                Claims are automatically generated when you analyze project records
+            </small>
+        </div>
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('view_project_records', project_id=project.id) }}" class="btn btn-warning">
+                <i class="fas fa-search me-2"></i>Analyze Records
+            </a>
+            <a href="{{ url_for('generate_report', project_id=project.id) }}" class="btn btn-outline-secondary">
+                <i class="fas fa-file-alt me-2"></i>View Report
+            </a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    {% if claims %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i>Auto-Generated Claims ({{ claims|length }})</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>#</th>
+                                <th>Claim ID</th>
+                                <th>Type</th>
+                                <th>Date Notified</th>
+                                <th>Claimant</th>
+                                <th>Status</th>
+                                <th>Amount (USD)</th>
+                                <th>Time Ext.</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for claim in claims %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td><strong>{{ claim.claim_id }}</strong></td>
+                                <td>{{ claim.claim_type }}</td>
+                                <td>{{ claim.date_notified.strftime('%d-%b-%Y') }}</td>
+                                <td>{{ claim.claimant }}</td>
+                                <td>
+                                    {% if claim.status == 'Approved' %}
+                                        <span class="badge bg-success">{{ claim.status }}</span>
+                                    {% elif claim.status == 'Rejected' %}
+                                        <span class="badge bg-danger">{{ claim.status }}</span>
+                                    {% elif claim.status == 'Active' %}
+                                        <span class="badge bg-info">{{ claim.status }}</span>
+                                    {% elif claim.status == 'Disputed' %}
+                                        <span class="badge bg-warning">{{ claim.status }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ claim.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if claim.amount_claimed %}
+                                        ${{ "{:,.2f}".format(claim.amount_claimed) }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if claim.time_extension_requested %}
+                                        {{ claim.time_extension_requested }} days
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn btn-outline-info" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#claimModal{{ claim.id }}"
+                                                title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    <div class="dropdown d-inline-block ms-1">
+                                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" href="{{ url_for('generate_claim_letter', project_id=project.id, claim_id=claim.id) }}">
+                                                    <i class="fas fa-file-pdf me-2"></i>Download Letter
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Claim Detail Modals -->
+        {% for claim in claims %}
+        <div class="modal fade" id="claimModal{{ claim.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-gavel me-2"></i>Claim {{ claim.claim_id }} - {{ claim.claim_type }}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Date Notified:</strong><br>
+                                {{ claim.date_notified.strftime('%B %d, %Y') }}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Claimant:</strong><br>
+                                {{ claim.claimant }}
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Amount Claimed:</strong><br>
+                                {% if claim.amount_claimed %}
+                                    ${{ "{:,.2f}".format(claim.amount_claimed) }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Time Extension:</strong><br>
+                                {% if claim.time_extension_requested %}
+                                    {{ claim.time_extension_requested }} days
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </div>
+                        </div>
+                        <hr>
+                        <strong>Description:</strong><br>
+                        <p>{{ claim.description }}</p>
+                        
+                        {% if claim.reference_documents %}
+                        <strong>Reference Documents:</strong><br>
+                        <div class="mt-2">
+                            {% set documents = claim.reference_documents.split(',') %}
+                            {% for doc in documents %}
+                                <a href="#" class="text-primary d-block reference-doc-link mb-1" 
+                                   data-filename="{{ doc.strip() }}" 
+                                   data-project-id="{{ project.id }}"
+                                   title="Click to view document">
+                                    <i class="fas fa-file-alt me-2"></i>{{ doc.strip() }}
+                                </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        {% if claim.remarks %}
+                        <strong>Remarks:</strong><br>
+                        <p>{{ claim.remarks }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <a href="{{ url_for('generate_claim_letter', project_id=project.id, claim_id=claim.id) }}" 
+                           class="btn btn-primary">
+                            <i class="fas fa-file-pdf me-2"></i>Download Formal Letter
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+    {% else %}
+        <div class="card text-center py-5">
+            <div class="card-body">
+                <i class="fas fa-gavel fa-4x mb-3 text-muted"></i>
+                <h4>No Claims Generated Yet</h4>
+                <p class="text-muted">Claims will be automatically generated when you analyze project records.</p>
+                <p class="text-info">
+                    <i class="fas fa-lightbulb me-1"></i>
+                    Upload project documents and records, then click "Analyze Records" to generate claims.
+                </p>
+                <div class="btn-group mt-3">
+                    <a href="{{ url_for('upload_document', project_id=project.id) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-upload me-1"></i> Upload Documents
+                    </a>
+                    <a href="{{ url_for('view_project_records', project_id=project.id) }}" class="btn btn-warning">
+                        <i class="fas fa-search me-1"></i> Analyze Records
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Document Viewer Modal -->
+<div class="modal fade" id="documentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-search me-2"></i>Reference File Search
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="documentModalBody">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Searching for document...</p>
+                </div>
+            </div>
+            <div class="modal-footer" id="documentModalFooter" style="display: none;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle reference document clicks
+    document.querySelectorAll('.reference-doc-link').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const filename = this.getAttribute('data-filename');
+            const projectId = this.getAttribute('data-project-id');
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('documentModal'));
+            modal.show();
+            
+            // Reset modal content
+            document.getElementById('documentModalBody').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Searching for document: ${filename}</p>
+                </div>
+            `;
+            document.getElementById('documentModalFooter').style.display = 'none';
+            
+            // Search for document
+            fetch(`/project/${projectId}/find-document?filename=${encodeURIComponent(filename)}`)
+                .then(response => {
+                    console.log('API Response status:', response.status);
+                    console.log('API Response headers:', response.headers);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('API Response data:', data);
+                    const modalBody = document.getElementById('documentModalBody');
+                    const modalFooter = document.getElementById('documentModalFooter');
+                    
+                    if (data.found) {
+                        if (data.exact_match !== false) {
+                            // Exact match found
+                            let fileTypeLabel = data.file_type === 'record' ? 'Project Record' : 'Contract Document';
+                            let fileTypeIcon = data.file_type === 'record' ? 'fa-folder-open' : 'fa-file-contract';
+                            let recordTypeInfo = data.record_type ? ` (${data.record_type})` : '';
+                            
+                            modalBody.innerHTML = `
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle me-2"></i>${fileTypeLabel} found!
+                                </div>
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <i class="fas ${fileTypeIcon} me-2"></i>${data.filename}${recordTypeInfo}
+                                        </h6>
+                                        <p class="card-text">This ${fileTypeLabel.toLowerCase()} is available in the project.</p>
+                                        <div class="btn-group">
+                                            ${data.view_url ? `<a href="${data.view_url}" class="btn btn-primary" target="_blank">
+                                                <i class="fas fa-eye me-1"></i>View Document
+                                            </a>` : ''}
+                                            <a href="${data.download_url}" class="btn btn-outline-primary">
+                                                <i class="fas fa-download me-1"></i>Download
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            // Partial matches found
+                            let matchesHtml = '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>Similar files found based on content analysis:</div>';
+                            data.matches.forEach(function(match) {
+                                let fileTypeLabel = match.file_type === 'record' ? 'Project Record' : 'Contract Document';
+                                let fileTypeIcon = match.file_type === 'record' ? 'fa-folder-open' : 'fa-file-contract';
+                                let recordTypeInfo = match.record_type ? ` (${match.record_type})` : '';
+                                let fileTypeBadge = match.file_type === 'record' ? '<span class="badge bg-info ms-2">Record</span>' : '<span class="badge bg-primary ms-2">Contract</span>';
+                                
+                                // Add match confidence indicator
+                                let matchScore = match.match_score || 0;
+                                let confidenceBadge = '';
+                                let confidenceColor = 'secondary';
+                                
+                                if (matchScore >= 80) {
+                                    confidenceBadge = 'High Match';
+                                    confidenceColor = 'success';
+                                } else if (matchScore >= 60) {
+                                    confidenceBadge = 'Good Match';
+                                    confidenceColor = 'warning';
+                                } else {
+                                    confidenceBadge = 'Possible Match';
+                                    confidenceColor = 'info';
+                                }
+                                
+                                matchesHtml += `
+                                    <div class="card mb-2">
+                                        <div class="card-body">
+                                            <h6 class="card-title">
+                                                <i class="fas ${fileTypeIcon} me-2"></i>${match.filename}${recordTypeInfo}${fileTypeBadge}
+                                                <span class="badge bg-${confidenceColor} ms-2">${confidenceBadge}</span>
+                                            </h6>
+                                            <small class="text-muted">Matched based on content similarity (${Math.round(matchScore)}% confidence)</small>
+                                            <div class="btn-group btn-group-sm mt-2">
+                                                ${match.view_url ? `<a href="${match.view_url}" class="btn btn-primary" target="_blank">
+                                                    <i class="fas fa-eye me-1"></i>View
+                                                </a>` : ''}
+                                                <a href="${match.download_url}" class="btn btn-outline-primary">
+                                                    <i class="fas fa-download me-1"></i>Download
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            modalBody.innerHTML = matchesHtml;
+                        }
+                    } else {
+                        modalBody.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>File not found
+                            </div>
+                            <p>The file "${filename}" could not be found in this project.</p>
+                            <p class="text-muted">This could mean:</p>
+                            <ul class="text-muted">
+                                <li>The document or record hasn't been uploaded yet</li>
+                                <li>The filename has changed</li>
+                                <li>It's referenced from external sources</li>
+                                <li>It's stored in a different project</li>
+                            </ul>
+                        `;
+                    }
+                    
+                    modalFooter.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error searching for document:', error);
+                    document.getElementById('documentModalBody').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>Error searching for document
+                        </div>
+                        <p>An error occurred while searching for the document. Please try again.</p>
+                    `;
+                    document.getElementById('documentModalFooter').style.display = 'block';
+                });
+        });
+    });
+});
+</script>
+
+{% endblock %} 

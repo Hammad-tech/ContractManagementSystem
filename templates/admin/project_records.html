@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}Project Records - {{ project.project_name }} - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row align-items-center mb-4">
+        <div class="col-md-8">
+            <h1 class="mb-2">
+                <i class="fas fa-clipboard-list me-2 text-primary"></i>Project Records
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('admin_dashboard') }}" class="text-decoration-none">
+                            <i class="fas fa-shield-alt me-1"></i>Admin Dashboard
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('admin_project_overview', project_id=project.id) }}" class="text-decoration-none">
+                            {{ project.project_name }}
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">Project Records</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <a href="{{ url_for('admin_project_overview', project_id=project.id) }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Overview
+            </a>
+        </div>
+    </div>
+
+    <!-- Project Records -->
+    {% if records %}
+    <div class="card shadow-sm">
+        <div class="card-header bg-transparent">
+            <h5 class="mb-0 d-flex align-items-center">
+                <i class="fas fa-clipboard-list me-2 text-primary"></i>Project Records
+                <span class="badge bg-info ms-2">{{ records|length }} records</span>
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Record Type</th>
+                            <th>File Name</th>
+                            <th>Uploaded By</th>
+                            <th>Upload Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-primary px-3 py-2">
+                                    <i class="fas fa-folder me-1"></i>{{ record.record_type.title() }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-file text-primary me-2"></i>
+                                    <div>
+                                        <div class="fw-medium">{{ record.filename }}</div>
+                                        <small class="text-muted">{{ (record.extracted_text|length / 1024)|round(1) if record.extracted_text else 0 }} KB extracted</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if record.uploader.role == 'owner' else 'info' }}">
+                                    <i class="fas fa-{{ 'building' if record.uploader.role == 'owner' else 'hard-hat' }} me-1"></i>
+                                    {{ record.uploader.username }} ({{ record.uploader.role.title() }})
+                                </span>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ record.uploaded_at.strftime('%B %d, %Y at %I:%M %p') }}</small>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('download_record', project_id=project.id, record_id=record.id) }}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-download me-1"></i>Download
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card text-center py-5 shadow-sm">
+        <div class="card-body">
+            <i class="fas fa-clipboard fa-4x text-muted mb-4"></i>
+            <h4 class="text-muted mb-3">No Project Records</h4>
+            <p class="text-muted mb-4">
+                No project records have been uploaded yet.<br>
+                The assigned owner and contractor can upload records to populate this section.
+            </p>
+            <a href="{{ url_for('admin_project_overview', project_id=project.id) }}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-1"></i>Back to Overview
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 
