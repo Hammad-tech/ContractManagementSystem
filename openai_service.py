@@ -3,7 +3,6 @@ import json
 import textwrap
 from openai import OpenAI
 from dotenv import load_dotenv
-import hashlib
 import pickle
 import tempfile
 
@@ -20,28 +19,6 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Using GPT-4 Turbo as the model
 OPENAI_MODEL = "gpt-4o"
-
-# Simple in-memory cache for this session
-_analysis_cache = {}
-
-def get_cache_key(text, analysis_type, role=None):
-    """Generate a cache key for analysis results"""
-    content = f"{analysis_type}:{role}:{text}"
-    return hashlib.md5(content.encode()).hexdigest()
-
-def get_cached_result(cache_key):
-    """Get cached analysis result"""
-    return _analysis_cache.get(cache_key)
-
-def cache_result(cache_key, result):
-    """Cache analysis result"""
-    _analysis_cache[cache_key] = result
-    # Limit cache size to prevent memory issues
-    if len(_analysis_cache) > 100:
-        # Remove oldest entries
-        keys_to_remove = list(_analysis_cache.keys())[:50]
-        for key in keys_to_remove:
-            del _analysis_cache[key]
 
 def preprocess_text(text):
     """Optimize text for faster processing while maintaining quality"""
@@ -114,12 +91,6 @@ def analyze_contract_risks(contract_text, user_role="contractor"):
     
     # Preprocess text for better performance
     processed_text = preprocess_text(contract_text)
-    
-    # Check cache first
-    cache_key = get_cache_key(processed_text, "contract_risks", user_role)
-    cached_result = get_cached_result(cache_key)
-    if cached_result is not None:
-        return cached_result
     
     try:
         # Role-specific analysis prompts
@@ -218,8 +189,6 @@ def analyze_contract_risks(contract_text, user_role="contractor"):
         elif isinstance(result, list):
             risks = result
         
-        # Cache the result
-        cache_result(cache_key, risks)
         return risks
             
     except Exception as e:
@@ -241,17 +210,6 @@ def analyze_project_records(record_text):
     
     # Preprocess text for better performance
     processed_text = preprocess_text(record_text)
-    
-    # Check cache first
-    cache_key = get_cache_key(processed_text, "project_records")
-    cached_result = get_cached_result(cache_key)
-    if cached_result is not None:
-        return cached_result
-    
-    # Keep original length for quality but optimize processing
-    max_chars = 15000
-    if len(processed_text) > max_chars:
-        processed_text = processed_text[:max_chars] + "... [text truncated for analysis]"
     
     try:
         prompt = f"""
@@ -284,8 +242,6 @@ def analyze_project_records(record_text):
             
         result = response.choices[0].message.content
         
-        # Cache the result
-        cache_result(cache_key, result)
         return result
         
     except Exception as e:
@@ -314,17 +270,6 @@ def assess_quantum(record_text):
     
     # Preprocess text for better performance
     processed_text = preprocess_text(record_text)
-    
-    # Check cache first
-    cache_key = get_cache_key(processed_text, "assess_quantum")
-    cached_result = get_cached_result(cache_key)
-    if cached_result is not None:
-        return cached_result
-    
-    # Truncate text if it's too long to avoid API timeout
-    max_chars = 15000
-    if len(processed_text) > max_chars:
-        processed_text = processed_text[:max_chars] + "... [text truncated for analysis]"
     
     try:
         prompt = f"""
@@ -364,9 +309,7 @@ def assess_quantum(record_text):
             
         if not isinstance(result.get("calculation_method"), str):
             result["calculation_method"] = "Method not provided"
-        
-        # Cache the result
-        cache_result(cache_key, result)
+            
         return result
         
     except json.JSONDecodeError as e:
@@ -407,17 +350,6 @@ def evaluate_counterclaims(record_text):
     # Preprocess text for better performance
     processed_text = preprocess_text(record_text)
     
-    # Check cache first
-    cache_key = get_cache_key(processed_text, "evaluate_counterclaims")
-    cached_result = get_cached_result(cache_key)
-    if cached_result is not None:
-        return cached_result
-    
-    # Truncate text if it's too long to avoid API timeout
-    max_chars = 15000
-    if len(processed_text) > max_chars:
-        processed_text = processed_text[:max_chars] + "... [text truncated for analysis]"
-    
     try:
         prompt = f"""
         Based on owner's correspondence and project logs, list possible counterclaims and defenses.
@@ -447,8 +379,6 @@ def evaluate_counterclaims(record_text):
             
         result = response.choices[0].message.content
         
-        # Cache the result
-        cache_result(cache_key, result)
         return result
         
     except Exception as e:
@@ -475,55 +405,46 @@ def generate_claims(record_text, contractor_name="ABC Construction Ltd"):
     # Preprocess text for better performance
     processed_text = preprocess_text(record_text)
     
-    # Check cache first
-    cache_key = get_cache_key(f"{processed_text}:{contractor_name}", "generate_claims")
-    cached_result = get_cached_result(cache_key)
-    if cached_result is not None:
-        return cached_result
-    
-    # Maintain quality - keep original text processing length
-    max_chars = 15000
-    if len(processed_text) > max_chars:
-        processed_text = processed_text[:max_chars] + "... [text truncated for analysis]"
-    
     try:
+        # Use improved prompt that forces correct JSON structure
         prompt = f"""
-        Based on the project records and documentation provided, identify and generate formal construction claims.
-        
-        Analyze the records for evidence of:
-        - Delay events and their causes
-        - Variation/change orders
-        - Weather delays and impacts
-        - Payment disputes
-        - Suspension of work
-        - Acceleration requests
-        - Subcontractor delays
-        - Other compensable events
-        
-        For each identified claim, provide the response in JSON format as an array of objects with these fields:
-        - claim_id: Sequential ID (001, 002, etc.)
-        - claim_type: Type of claim (e.g., "Time Extension Claim", "Variation Claim", "Weather Delay Claim", etc.)
-        - date_notified: Date when the claim was identified (use format YYYY-MM-DD, estimate based on records)
-        - claimant: The contractor name (use "{contractor_name}")
-        - description: Brief description of the claim event
-        - reference_documents: Comma-separated list of supporting documents referenced in the records
-        - status: Status of the claim (e.g., "Pending", "Active", "Disputed")
-        - amount_claimed: Estimated financial amount if determinable from records (numeric value or null)
-        - time_extension_requested: Days of time extension if applicable (numeric value or null)
-        - remarks: Additional relevant notes or findings
-        
-        Only generate claims that have reasonable evidence in the provided records. If no claims can be substantiated, return an empty array.
-        
-        Project Records:
-        {processed_text}
-        """
+You are a construction claims analyst. Analyze the following project documents and records to identify potential claims.
+
+IMPORTANT: You MUST return a JSON object with a "claims" array, even if empty. Format:
+{{"claims": [...]}}
+
+Look for evidence of:
+- Delays (weather, materials, labor, etc.)
+- Changes in scope or variations
+- Disruptions to work
+- Additional costs
+- Time extensions
+- Payment issues
+- Site condition problems
+
+For each claim found, include:
+- claim_id: Sequential ID (001, 002, etc.)
+- claim_type: Type (e.g., "Weather Delay", "Material Delay", "Variation Claim")
+- date_notified: Date in YYYY-MM-DD format
+- claimant: "{contractor_name}"
+- description: Brief description
+- reference_documents: Supporting documents
+- status: "Pending", "Active", or "Disputed"
+- amount_claimed: Dollar amount (number) or null
+- time_extension_requested: Days (number) or null
+- remarks: Additional notes
+
+ANALYZE THIS TEXT CAREFULLY and identify ALL possible claims:
+
+{processed_text}
+"""
         
         response = client.chat.completions.create(
-            model=OPENAI_MODEL,
+            model="gpt-4o",  # Use better model
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            temperature=0.3,
-            timeout=45  # Balanced timeout
+            temperature=0.1,  # Lower temperature for more consistent results
+            timeout=60
         )
         
         if not response or not hasattr(response, 'choices') or not response.choices:
@@ -537,9 +458,10 @@ def generate_claims(record_text, contractor_name="ABC Construction Ltd"):
             claims = result['claims'] if isinstance(result['claims'], list) else []
         elif isinstance(result, list):
             claims = result
+        elif isinstance(result, dict) and 'claim_id' in result:
+            # Handle case where OpenAI returns a single claim object directly
+            claims = [result]
         
-        # Cache the result
-        cache_result(cache_key, claims)
         return claims
         
     except json.JSONDecodeError as e:

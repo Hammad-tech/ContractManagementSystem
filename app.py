@@ -1,4 +1,4 @@
-import os
+﻿import os
 import logging
 from datetime import datetime
 from flask import Flask, render_template, redirect, url_for, flash, request, session, abort, send_file, jsonify
@@ -51,10 +51,16 @@ os.makedirs(app.config['REPORTS_FOLDER'], exist_ok=True)  # Create reports direc
 from models import User, Project, Document, ProjectRecord, Risk, EntitlementCausation, Quantum, Counterclaim, ChatMessage, Claim
 from forms import LoginForm, RegistrationForm, ProjectForm, UploadDocumentForm, UploadProjectRecordForm, ChatForm, AdminProjectForm, AdminUserForm
 from utils import extract_text_from_file, allowed_file
-from openai_service import (analyze_contract_risks, analyze_project_records, 
-                           assess_quantum, evaluate_counterclaims, 
-                           suggest_dispute_strategy, chat_with_documents,
-                           chunk_text, generate_claims)
+from openai_service import (
+    analyze_contract_risks, 
+    analyze_project_records, 
+    assess_quantum, 
+    evaluate_counterclaims, 
+    generate_claims, 
+    suggest_dispute_strategy, 
+    chat_with_documents,
+    chunk_text
+)
 
 # Role-based decorators
 def admin_required(f):
@@ -142,7 +148,7 @@ with app.app_context():
                         app.logger.info(f"Created {user_data['role']} user: {user_data['username']} ({user_data['email']})")
                 
                 db.session.commit()
-                app.logger.info("✅ Seed users created successfully!")
+                app.logger.info("âœ… Seed users created successfully!")
                 app.logger.info("Default login credentials:")
                 for user in users_data:
                     app.logger.info(f"  - {user['role'].title()}: {user['email']} / {user['password']}")
@@ -451,7 +457,7 @@ def upload_document(project_id):
                 for role in roles_to_analyze:
                     for chunk in chunked_text:
                         risks = analyze_contract_risks(chunk, role)
-                        
+                    
                         for risk in risks:
                             new_risk = Risk(
                                 document_id=new_document.id,
@@ -702,11 +708,21 @@ def analyze_records(project_id):
         Claim.query.filter_by(project_id=project_id).delete()
         
         generated_claims = results.get('claims', [])
+        print(f"DEBUG: Generated {len(generated_claims)} claims")
+        print(f"DEBUG: Claims data: {generated_claims}")
+        
         for claim_data in generated_claims:
             try:
                 # Parse the date
                 from datetime import datetime
                 date_notified = datetime.strptime(claim_data.get('date_notified', '2025-01-01'), '%Y-%m-%d')
+                
+                # Handle reference_documents - convert list to string if needed
+                ref_docs = claim_data.get('reference_documents', '')
+                if isinstance(ref_docs, list):
+                    ref_docs = ', '.join(ref_docs)
+                elif ref_docs is None:
+                    ref_docs = ''
                 
                 new_claim = Claim(
                     project_id=project_id,
@@ -715,7 +731,7 @@ def analyze_records(project_id):
                     date_notified=date_notified,
                     claimant=claim_data.get('claimant', project.contractor.username if project.contractor else "ABC Construction Ltd"),
                     description=claim_data.get('description', 'No description available'),
-                    reference_documents=claim_data.get('reference_documents', ''),
+                    reference_documents=ref_docs,
                     status=claim_data.get('status', 'Pending'),
                     amount_claimed=claim_data.get('amount_claimed'),
                     time_extension_requested=claim_data.get('time_extension_requested'),
@@ -723,8 +739,10 @@ def analyze_records(project_id):
                     created_by=current_user.id
                 )
                 db.session.add(new_claim)
+                print(f"DEBUG: Created claim {claim_data.get('claim_id', '001')}")
             except Exception as e:
                 app.logger.error(f"Error creating claim: {str(e)}")
+                print(f"DEBUG: Error creating claim: {str(e)}")
                 continue
         
         # Optimize contract risk analysis - use smarter chunking
@@ -750,12 +768,12 @@ def analyze_records(project_id):
                                     document_id=doc_id,
                                     project_id=project_id,
                                     clause_text=risk_data['clause_text'][:500],
-                                    risk_category=risk_data['risk_category'],
-                                    risk_score=risk_data['risk_score'],
+                                risk_category=risk_data['risk_category'],
+                                risk_score=risk_data['risk_score'],
                                     explanation=risk_data['explanation'],
                                     user_role=role
                                 )
-                                role_risks.append(risk)
+                            role_risks.append(risk)
                         return role_risks
                     
                     # Process roles in parallel
@@ -856,6 +874,11 @@ def generate_report(project_id):
     quantum = Quantum.query.filter_by(project_id=project_id).first()
     counterclaims = Counterclaim.query.filter_by(project_id=project_id).all()
     claims = Claim.query.filter_by(project_id=project_id).all()
+    
+    # DEBUG: Add this line temporarily
+    print(f"DEBUG: Found {len(claims)} claims for project {project_id}")
+    for claim in claims:
+        print(f"DEBUG: Claim {claim.claim_id}: {claim.claim_type}")
     
     # Create a temporary file for the PDF
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf', dir=app.config['REPORTS_FOLDER'])
@@ -1306,9 +1329,9 @@ def regenerate_risks(project_id):
                                 clause_text=risk_data['clause_text'][:500],
                                 risk_category=risk_data['risk_category'],
                                 risk_score=risk_data['risk_score'],
-                                explanation=risk_data['explanation'],
-                                user_role=role
-                            )
+                                    explanation=risk_data['explanation'],
+                                    user_role=role
+                                )
                             db.session.add(risk)
                             risks_generated += 1
         
