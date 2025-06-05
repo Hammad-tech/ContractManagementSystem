@@ -51,16 +51,10 @@ os.makedirs(app.config['REPORTS_FOLDER'], exist_ok=True)  # Create reports direc
 from models import User, Project, Document, ProjectRecord, Risk, EntitlementCausation, Quantum, Counterclaim, ChatMessage, Claim
 from forms import LoginForm, RegistrationForm, ProjectForm, UploadDocumentForm, UploadProjectRecordForm, ChatForm, AdminProjectForm, AdminUserForm
 from utils import extract_text_from_file, allowed_file
-from openai_service import (
-    analyze_contract_risks, 
-    analyze_project_records, 
-    assess_quantum, 
-    evaluate_counterclaims, 
-    generate_claims, 
-    suggest_dispute_strategy, 
-    chat_with_documents,
-    chunk_text
-)
+from openai_service import (analyze_contract_risks, analyze_project_records, 
+                           assess_quantum, evaluate_counterclaims, 
+                           suggest_dispute_strategy, chat_with_documents,
+                           chunk_text, generate_claims)
 
 # Role-based decorators
 def admin_required(f):
@@ -99,69 +93,64 @@ def load_user(user_id):
 # Create database tables within application context
 with app.app_context():
     db.create_all()
-    
-    # Auto-seed users on first run
-    def create_seed_users():
-        """Create seed users if no users exist in the database"""
-        try:
-            # Check if any users exist
-            user_count = User.query.count()
-            
-            if user_count == 0:
-                app.logger.info("No users found. Creating seed users...")
-                
-                # User data to seed
-                users_data = [
-                    {
-                        "username": "admin_user",
-                        "email": "admin@example.com",
-                        "password": "admin123",
-                        "role": "admin"
-                    },
-                    {
-                        "username": "owner_user",
-                        "email": "owner@example.com",
-                        "password": "owner123",
-                        "role": "owner"
-                    },
-                    {
-                        "username": "contractor_user",
-                        "email": "contractor@example.com",
-                        "password": "contractor123",
-                        "role": "contractor"
-                    }
-                ]
-                
-                for user_data in users_data:
-                    # Check if user already exists by email (double-check)
-                    existing_user = User.query.filter_by(email=user_data["email"]).first()
-                    
-                    if not existing_user:
-                        hashed_password = generate_password_hash(user_data["password"])
-                        new_user = User(
-                            username=user_data["username"],
-                            email=user_data["email"],
-                            password_hash=hashed_password,
-                            role=user_data["role"]
-                        )
-                        db.session.add(new_user)
-                        app.logger.info(f"Created {user_data['role']} user: {user_data['username']} ({user_data['email']})")
-                
-                db.session.commit()
-                app.logger.info("âœ… Seed users created successfully!")
-                app.logger.info("Default login credentials:")
-                for user in users_data:
-                    app.logger.info(f"  - {user['role'].title()}: {user['email']} / {user['password']}")
-                    
-            else:
-                app.logger.info(f"Database already has {user_count} users. Skipping seed creation.")
-                
-        except Exception as e:
-            db.session.rollback()
-            app.logger.error(f"Error creating seed users: {str(e)}")
-    
-    # Run the seed function
-    create_seed_users()
+
+# Database seeding function
+def seed_database():
+    """Seed the database with initial users if they don't exist"""
+    try:
+        # Check if admin user already exists
+        existing_admin = User.query.filter_by(email='admin@example.com').first()
+        if not existing_admin:
+            # Create admin user
+            admin_user = User(
+                username='Admin',
+                email='admin@example.com',
+                password_hash=generate_password_hash('admin123'),
+                role='admin'
+            )
+            db.session.add(admin_user)
+            app.logger.info("Created admin user: admin@example.com")
+
+        # Check if owner user already exists
+        existing_owner = User.query.filter_by(email='owner@example.com').first()
+        if not existing_owner:
+            # Create owner user
+            owner_user = User(
+                username='Project Owner',
+                email='owner@example.com',
+                password_hash=generate_password_hash('owner123'),
+                role='owner'
+            )
+            db.session.add(owner_user)
+            app.logger.info("Created owner user: owner@example.com")
+
+        # Check if contractor user already exists
+        existing_contractor = User.query.filter_by(email='contractor@example.com').first()
+        if not existing_contractor:
+            # Create contractor user
+            contractor_user = User(
+                username='Main Contractor',
+                email='contractor@example.com',
+                password_hash=generate_password_hash('contractor123'),
+                role='contractor'
+            )
+            db.session.add(contractor_user)
+            app.logger.info("Created contractor user: contractor@example.com")
+
+        # Commit all changes
+        db.session.commit()
+        
+        # Log seeding completion
+        total_users = User.query.count()
+        app.logger.info(f"Database seeding completed. Total users: {total_users}")
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error seeding database: {str(e)}")
+
+# Seed the database with initial users
+with app.app_context():
+    seed_database()
 
 # Authentication routes
 @app.route('/')
@@ -457,7 +446,7 @@ def upload_document(project_id):
                 for role in roles_to_analyze:
                     for chunk in chunked_text:
                         risks = analyze_contract_risks(chunk, role)
-                    
+                        
                         for risk in risks:
                             new_risk = Risk(
                                 document_id=new_document.id,
@@ -640,19 +629,49 @@ def analyze_records(project_id):
         # Results containers
         results = {}
         
-        # Define analysis functions for parallel execution
+        # Define analysis functions for parallel execution with Flask app context
         def analyze_entitlements():
-            results['entitlements'] = analyze_project_records(combined_text)
+            with app.app_context():
+                try:
+                    results['entitlements'] = analyze_project_records(combined_text)
+                    app.logger.info(f"Entitlements analysis completed: {len(results.get('entitlements', '')) if results.get('entitlements') else 0} chars")
+                except Exception as e:
+                    app.logger.error(f"Entitlements analysis failed: {str(e)}")
+                    results['entitlements'] = ''
         
         def analyze_quantum():
-            results['quantum'] = assess_quantum(combined_text)
+            with app.app_context():
+                try:
+                    results['quantum'] = assess_quantum(combined_text)
+                    app.logger.info(f"Quantum analysis completed: {results.get('quantum', {})}")
+                except Exception as e:
+                    app.logger.error(f"Quantum analysis failed: {str(e)}")
+                    results['quantum'] = {}
         
         def analyze_counterclaims():
-            results['counterclaims'] = evaluate_counterclaims(combined_text)
+            with app.app_context():
+                try:
+                    results['counterclaims'] = evaluate_counterclaims(combined_text)
+                    app.logger.info(f"Counterclaims analysis completed: {len(results.get('counterclaims', '')) if results.get('counterclaims') else 0} chars")
+                except Exception as e:
+                    app.logger.error(f"Counterclaims analysis failed: {str(e)}")
+                    results['counterclaims'] = ''
         
         def analyze_claims():
-            contractor_name = project.contractor.username if project.contractor else "ABC Construction Ltd"
-            results['claims'] = generate_claims(combined_text, contractor_name)
+            with app.app_context():
+                try:
+                    contractor_name = project.contractor.username if project.contractor else "ABC Construction Ltd"
+                    claims_result = generate_claims(combined_text, contractor_name)
+                    results['claims'] = claims_result
+                    app.logger.info(f"Claims analysis completed: {len(claims_result) if claims_result else 0} claims generated")
+                    if claims_result:
+                        for i, claim in enumerate(claims_result):
+                            app.logger.info(f"  Claim {i+1}: {claim.get('claim_type', 'Unknown')} - {claim.get('description', 'No description')[:50]}...")
+                except Exception as e:
+                    app.logger.error(f"Claims analysis failed: {str(e)}")
+                    import traceback
+                    app.logger.error(f"Claims analysis traceback: {traceback.format_exc()}")
+                    results['claims'] = []
         
         # Execute analyses in parallel for better performance
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
@@ -662,8 +681,29 @@ def analyze_records(project_id):
             futures.append(executor.submit(analyze_counterclaims))
             futures.append(executor.submit(analyze_claims))
             
-            # Wait for all analyses to complete
-            concurrent.futures.wait(futures)
+            # Wait for all analyses to complete with timeout
+            try:
+                concurrent.futures.wait(futures, timeout=180)  # 3 minutes timeout
+                
+                # Check for any failed futures
+                for i, future in enumerate(futures):
+                    try:
+                        future.result(timeout=5)  # Quick check if completed
+                        app.logger.info(f"Analysis task {i+1} completed successfully")
+                    except concurrent.futures.TimeoutError:
+                        app.logger.error(f"Analysis task {i+1} timed out")
+                    except Exception as e:
+                        app.logger.error(f"Analysis task {i+1} failed: {str(e)}")
+                        
+            except concurrent.futures.TimeoutError:
+                app.logger.error("Overall analysis timed out")
+                flash('Analysis timed out. Some results may be incomplete.', 'warning')
+        
+        # Log final results for debugging
+        app.logger.info(f"Final results - Entitlements: {len(results.get('entitlements', '')) if results.get('entitlements') else 0} chars")
+        app.logger.info(f"Final results - Quantum: {results.get('quantum', {})}")
+        app.logger.info(f"Final results - Counterclaims: {len(results.get('counterclaims', '')) if results.get('counterclaims') else 0} chars")
+        app.logger.info(f"Final results - Claims: {len(results.get('claims', [])) if results.get('claims') else 0} claims")
         
         # Process results and update database
         # Update entitlements
@@ -708,21 +748,14 @@ def analyze_records(project_id):
         Claim.query.filter_by(project_id=project_id).delete()
         
         generated_claims = results.get('claims', [])
-        print(f"DEBUG: Generated {len(generated_claims)} claims")
-        print(f"DEBUG: Claims data: {generated_claims}")
+        app.logger.info(f"Processing {len(generated_claims)} claims for database insertion")
         
+        claims_saved = 0
         for claim_data in generated_claims:
             try:
                 # Parse the date
                 from datetime import datetime
                 date_notified = datetime.strptime(claim_data.get('date_notified', '2025-01-01'), '%Y-%m-%d')
-                
-                # Handle reference_documents - convert list to string if needed
-                ref_docs = claim_data.get('reference_documents', '')
-                if isinstance(ref_docs, list):
-                    ref_docs = ', '.join(ref_docs)
-                elif ref_docs is None:
-                    ref_docs = ''
                 
                 new_claim = Claim(
                     project_id=project_id,
@@ -731,7 +764,7 @@ def analyze_records(project_id):
                     date_notified=date_notified,
                     claimant=claim_data.get('claimant', project.contractor.username if project.contractor else "ABC Construction Ltd"),
                     description=claim_data.get('description', 'No description available'),
-                    reference_documents=ref_docs,
+                    reference_documents=claim_data.get('reference_documents', ''),
                     status=claim_data.get('status', 'Pending'),
                     amount_claimed=claim_data.get('amount_claimed'),
                     time_extension_requested=claim_data.get('time_extension_requested'),
@@ -739,11 +772,14 @@ def analyze_records(project_id):
                     created_by=current_user.id
                 )
                 db.session.add(new_claim)
-                print(f"DEBUG: Created claim {claim_data.get('claim_id', '001')}")
+                claims_saved += 1
+                app.logger.info(f"Successfully created claim: {new_claim.claim_type}")
             except Exception as e:
                 app.logger.error(f"Error creating claim: {str(e)}")
-                print(f"DEBUG: Error creating claim: {str(e)}")
+                app.logger.error(f"Claim data: {claim_data}")
                 continue
+        
+        app.logger.info(f"Claims saved to database: {claims_saved}")
         
         # Optimize contract risk analysis - use smarter chunking
         if documents:
@@ -768,12 +804,12 @@ def analyze_records(project_id):
                                     document_id=doc_id,
                                     project_id=project_id,
                                     clause_text=risk_data['clause_text'][:500],
-                                risk_category=risk_data['risk_category'],
-                                risk_score=risk_data['risk_score'],
+                                    risk_category=risk_data['risk_category'],
+                                    risk_score=risk_data['risk_score'],
                                     explanation=risk_data['explanation'],
                                     user_role=role
                                 )
-                            role_risks.append(risk)
+                                role_risks.append(risk)
                         return role_risks
                     
                     # Process roles in parallel
@@ -790,12 +826,19 @@ def analyze_records(project_id):
                                 db.session.add(risk)
         
         db.session.commit()
-        flash('Analysis completed successfully! All analyses processed in parallel for optimal performance.', 'success')
+        
+        # Create success message with details
+        success_msg = f'Analysis completed successfully! Generated: {len(results.get("entitlements", ""))} char entitlements, {len(generated_claims)} claims, quantum analysis, and counterclaims.'
+        flash(success_msg, 'success')
+        app.logger.info(success_msg)
+        
         return redirect(url_for('generate_report', project_id=project_id))
     
     except Exception as e:
         db.session.rollback()
         app.logger.error(f"Error during record analysis: {str(e)}")
+        import traceback
+        app.logger.error(f"Full traceback: {traceback.format_exc()}")
         flash(f'Error during analysis: {str(e)}', 'danger')
         return redirect(url_for('view_project_records', project_id=project_id))
 
@@ -874,11 +917,6 @@ def generate_report(project_id):
     quantum = Quantum.query.filter_by(project_id=project_id).first()
     counterclaims = Counterclaim.query.filter_by(project_id=project_id).all()
     claims = Claim.query.filter_by(project_id=project_id).all()
-    
-    # DEBUG: Add this line temporarily
-    print(f"DEBUG: Found {len(claims)} claims for project {project_id}")
-    for claim in claims:
-        print(f"DEBUG: Claim {claim.claim_id}: {claim.claim_type}")
     
     # Create a temporary file for the PDF
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf', dir=app.config['REPORTS_FOLDER'])
@@ -1329,9 +1367,9 @@ def regenerate_risks(project_id):
                                 clause_text=risk_data['clause_text'][:500],
                                 risk_category=risk_data['risk_category'],
                                 risk_score=risk_data['risk_score'],
-                                    explanation=risk_data['explanation'],
-                                    user_role=role
-                                )
+                                explanation=risk_data['explanation'],
+                                user_role=role
+                            )
                             db.session.add(risk)
                             risks_generated += 1
         
