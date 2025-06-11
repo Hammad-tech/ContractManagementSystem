@@ -291,12 +291,45 @@ def admin_dashboard():
     
     return render_template('admin_dashboard.html', projects=projects, project_form=project_form, user_form=user_form, users=users)
 
-@app.route('/admin/users')
+@app.route('/admin/users', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def manage_users():
+    user_form = AdminUserForm()
+    
+    # Handle user creation
+    if request.method == 'POST' and 'create_user' in request.form:
+        if user_form.validate_on_submit():
+            # Check if email already exists (additional server-side check)
+            existing_user = User.query.filter_by(email=user_form.email.data).first()
+            if existing_user:
+                flash('A user with this email already exists. Please use a different email.', 'danger')
+            else:
+                hashed_password = generate_password_hash(user_form.password.data)
+                new_user = User(
+                    username=user_form.username.data,
+                    email=user_form.email.data,
+                    password_hash=hashed_password,
+                    role=user_form.role.data
+                )
+                
+                try:
+                    db.session.add(new_user)
+                    db.session.commit()
+                    flash('User created successfully!', 'success')
+                    return redirect(url_for('manage_users'))
+                except SQLAlchemyError as e:
+                    db.session.rollback()
+                    app.logger.error(f"Database error: {str(e)}")
+                    flash('An error occurred while creating user.', 'danger')
+        else:
+            # Display form validation errors
+            for field, errors in user_form.errors.items():
+                for error in errors:
+                    flash(f'{field.replace("_", " ").title()}: {error}', 'danger')
+    
     users = User.query.filter(User.role != 'admin').all()
-    return render_template('admin/users.html', users=users)
+    return render_template('admin/users.html', users=users, user_form=user_form)
 
 @app.route('/admin/user/<int:user_id>/change-password', methods=['GET', 'POST'])
 @login_required
