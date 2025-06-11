@@ -28,28 +28,31 @@
                 <div class="tab-content" id="loginTabContent">
                     <!-- User Login Tab -->
                     <div class="tab-pane fade show active" id="user-login" role="tabpanel">
-                        <form method="POST" novalidate>
+                        <form method="POST" novalidate id="userLoginForm">
                             {{ form.hidden_tag() }}
                             <input type="hidden" name="login_type" value="user">
                             
                             <div class="mb-3">
                                 <label class="form-label">Email Address</label>
-                                {{ form.email(class="form-control", placeholder="your.email@example.com") }}
+                                {{ form.email(class="form-control", placeholder="your.email@example.com", required=true) }}
                                 {% if form.email.errors %}
                                     <div class="text-danger small mt-1">
                                         {% for error in form.email.errors %}{{ error }}{% endfor %}
                                     </div>
                                 {% endif %}
+                                <div class="invalid-feedback"></div>
                             </div>
                             
                             <div class="mb-4">
                                 <label class="form-label">Password</label>
-                                {{ form.password(class="form-control", placeholder="Enter your password") }}
+                                {{ form.password(class="form-control", placeholder="Enter your password", required=true, minlength="8") }}
                                 {% if form.password.errors %}
                                     <div class="text-danger small mt-1">
                                         {% for error in form.password.errors %}{{ error }}{% endfor %}
                                     </div>
                                 {% endif %}
+                                <div class="invalid-feedback"></div>
+                                <small class="form-text text-muted">Password must be at least 8 characters long</small>
                             </div>
                             
                             <div class="d-grid">
@@ -64,23 +67,26 @@
 
                     <!-- Admin Login Tab -->
                     <div class="tab-pane fade" id="admin-login" role="tabpanel">
-                        <form method="POST" novalidate>
+                        <form method="POST" novalidate id="adminLoginForm">
                             {{ form.hidden_tag() }}
                             <input type="hidden" name="login_type" value="admin">
                             
                             <div class="mb-3">
                                 <label class="form-label">Admin Email</label>
                                 <input type="email" name="email" class="form-control" placeholder="admin@example.com" required>
+                                <div class="invalid-feedback"></div>
                             </div>
                             
                             <div class="mb-4">
                                 <label class="form-label">Admin Password</label>
-                                <input type="password" name="password" class="form-control" placeholder="Enter admin password" required>
+                                <input type="password" name="password" class="form-control" placeholder="Enter admin password" required minlength="8">
+                                <div class="invalid-feedback"></div>
+                                <small class="form-text text-muted">Password must be at least 8 characters long</small>
                             </div>
                             
                             <div class="d-grid">
-                                <button type="submit" class="btn btn-warning text-dark">
-                                    <i class="fas fa-shield-alt me-2"></i>Login as Admin
+                                <button type="submit" class="btn btn-danger text-white">
+                                    <i class="fas fa-shield-alt me-2"></i>Sign In with Admin
                                 </button>
                             </div>
                         </form>
@@ -93,22 +99,88 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Add visual feedback for form submissions
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
-        form.addEventListener('submit', function() {
-            const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
-            if (submitBtn) {
-                const originalText = submitBtn.innerHTML || submitBtn.value;
-                if (submitBtn.tagName === 'BUTTON') {
-                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Logging in...';
-                } else {
-                    submitBtn.value = 'Logging in...';
-                }
-                submitBtn.disabled = true;
-            }
+    // Email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    // Validate form function
+    function validateForm(form) {
+        let isValid = true;
+        const emailField = form.querySelector('input[name="email"]');
+        const passwordField = form.querySelector('input[name="password"]');
+        
+        // Clear previous validation states
+        form.querySelectorAll('.is-invalid').forEach(field => {
+            field.classList.remove('is-invalid');
         });
+        
+        // Validate email
+        if (!emailField.value.trim()) {
+            emailField.classList.add('is-invalid');
+            emailField.nextElementSibling.textContent = 'Email is required';
+            isValid = false;
+        } else if (!emailRegex.test(emailField.value)) {
+            emailField.classList.add('is-invalid');
+            emailField.nextElementSibling.textContent = 'Please enter a valid email address';
+            isValid = false;
+        }
+        
+        // Validate password
+        if (!passwordField.value.trim()) {
+            passwordField.classList.add('is-invalid');
+            passwordField.nextElementSibling.textContent = 'Password is required';
+            isValid = false;
+        } else if (passwordField.value.length < 8) {
+            passwordField.classList.add('is-invalid');
+            passwordField.nextElementSibling.textContent = 'Password must be at least 8 characters long';
+            isValid = false;
+        }
+        
+        return isValid;
+    }
+    
+    // Handle form submissions with validation
+    const userForm = document.getElementById('userLoginForm');
+    const adminForm = document.getElementById('adminLoginForm');
+    
+    [userForm, adminForm].forEach(form => {
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (!validateForm(form)) {
+                    e.preventDefault();
+                    return false;
+                }
+                
+                // Add visual feedback for valid submissions
+                const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+                if (submitBtn) {
+                    const originalText = submitBtn.innerHTML || submitBtn.value;
+                    if (submitBtn.tagName === 'BUTTON') {
+                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Logging in...';
+                    } else {
+                        submitBtn.value = 'Logging in...';
+                    }
+                    submitBtn.disabled = true;
+                }
+            });
+        }
     });
+    
+    // Preserve active tab on page reload (for validation errors)
+    const activeTab = '{{ active_tab or "" }}';
+    
+    if (activeTab === 'admin') {
+        const adminTab = document.getElementById('admin-tab');
+        const userTab = document.getElementById('user-tab');
+        const adminPane = document.getElementById('admin-login');
+        const userPane = document.getElementById('user-login');
+        
+        if (adminTab && userTab && adminPane && userPane) {
+            adminTab.classList.add('active');
+            userTab.classList.remove('active');
+            adminPane.classList.add('show', 'active');
+            userPane.classList.remove('show', 'active');
+        }
+    }
 });
 </script>
 {% endblock %}

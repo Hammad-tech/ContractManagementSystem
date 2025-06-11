@@ -49,7 +49,7 @@ os.makedirs(app.config['REPORTS_FOLDER'], exist_ok=True)  # Create reports direc
 
 # Import models and services
 from models import User, Project, Document, ProjectRecord, Risk, EntitlementCausation, Quantum, Counterclaim, ChatMessage, Claim
-from forms import LoginForm, RegistrationForm, ProjectForm, UploadDocumentForm, UploadProjectRecordForm, ChatForm, AdminProjectForm, AdminUserForm
+from forms import LoginForm, RegistrationForm, ProjectForm, UploadDocumentForm, UploadProjectRecordForm, ChatForm, AdminProjectForm, AdminUserForm, ChangePasswordForm
 from utils import extract_text_from_file, allowed_file
 from openai_service import (analyze_contract_risks, analyze_project_records, 
                            assess_quantum, evaluate_counterclaims, 
@@ -166,24 +166,48 @@ def login():
     
     form = LoginForm()
     
-    if form.validate_on_submit():
+    if request.method == 'POST':
         login_type = request.form.get('login_type', 'user')
-        user = User.query.filter_by(email=form.email.data).first()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
         
-        if user and check_password_hash(user.password_hash, form.password.data):
+        # Server-side validation
+        if not email:
+            flash('Email is required', 'danger')
+            return render_template('login.html', form=form, active_tab=login_type)
+        
+        if not password:
+            flash('Password is required', 'danger')
+            return render_template('login.html', form=form, active_tab=login_type)
+        
+        if len(password) < 8:
+            flash('Password must be at least 8 characters long', 'danger')
+            return render_template('login.html', form=form, active_tab=login_type)
+        
+        # Email format validation
+        import re
+        email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+        if not re.match(email_regex, email):
+            flash('Please enter a valid email address', 'danger')
+            return render_template('login.html', form=form, active_tab=login_type)
+        
+        user = User.query.filter_by(email=email).first()
+        
+        if user and check_password_hash(user.password_hash, password):
             # Validate role-based access
             if login_type == 'admin' and user.role != 'admin':
                 flash('You do not have admin privileges. Please use the User Login tab.', 'danger')
-                return render_template('login.html', form=form)
+                return render_template('login.html', form=form, active_tab=login_type)
             elif login_type == 'user' and user.role == 'admin':
                 flash('Admin users must use the Admin Login tab.', 'warning')
-                return render_template('login.html', form=form)
+                return render_template('login.html', form=form, active_tab=login_type)
             
             login_user(user)
             next_page = request.args.get('next')
             return redirect(next_page or url_for('dashboard'))
         else:
             flash('Invalid email or password', 'danger')
+            return render_template('login.html', form=form, active_tab=login_type)
     
     return render_template('login.html', form=form)
 
@@ -229,24 +253,35 @@ def admin_dashboard():
             flash('An error occurred. Please try again.', 'danger')
     
     # Handle user creation
-    if user_form.validate_on_submit() and 'create_user' in request.form:
-        hashed_password = generate_password_hash(user_form.password.data)
-        new_user = User(
-            username=user_form.username.data,
-            email=user_form.email.data,
-            password_hash=hashed_password,
-            role=user_form.role.data
-        )
-        
-        try:
-            db.session.add(new_user)
-            db.session.commit()
-            flash('User created successfully!', 'success')
-            return redirect(url_for('admin_dashboard'))
-        except SQLAlchemyError as e:
-            db.session.rollback()
-            app.logger.error(f"Database error: {str(e)}")
-            flash('An error occurred while creating user.', 'danger')
+    if request.method == 'POST' and 'create_user' in request.form:
+        if user_form.validate_on_submit():
+            # Check if email already exists (additional server-side check)
+            existing_user = User.query.filter_by(email=user_form.email.data).first()
+            if existing_user:
+                flash('A user with this email already exists. Please use a different email.', 'danger')
+            else:
+                hashed_password = generate_password_hash(user_form.password.data)
+                new_user = User(
+                    username=user_form.username.data,
+                    email=user_form.email.data,
+                    password_hash=hashed_password,
+                    role=user_form.role.data
+                )
+                
+                try:
+                    db.session.add(new_user)
+                    db.session.commit()
+                    flash('User created successfully!', 'success')
+                    return redirect(url_for('admin_dashboard'))
+                except SQLAlchemyError as e:
+                    db.session.rollback()
+                    app.logger.error(f"Database error: {str(e)}")
+                    flash('An error occurred while creating user.', 'danger')
+        else:
+            # Display form validation errors
+            for field, errors in user_form.errors.items():
+                for error in errors:
+                    flash(f'{field.replace("_", " ").title()}: {error}', 'danger')
     
     # Get all projects created by this admin
     projects = Project.query.filter_by(creator_id=current_user.id).all()
@@ -262,6 +297,57 @@ def admin_dashboard():
 def manage_users():
     users = User.query.filter(User.role != 'admin').all()
     return render_template('admin/users.html', users=users)
+
+@app.route('/admin/user/<int:user_id>/change-password', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def change_user_password(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    # Ensure user is not admin
+    if user.role == 'admin':
+        flash('Cannot change admin passwords.', 'danger')
+        return redirect(url_for('manage_users'))
+    
+    # Get the referrer URL to redirect back to correct page
+    referrer = request.args.get('referrer', request.referrer)
+    if not referrer or not referrer.startswith(request.host_url):
+        referrer = url_for('manage_users')
+    
+    form = ChangePasswordForm()
+    
+    if form.validate_on_submit():
+        try:
+            user.password_hash = generate_password_hash(form.new_password.data)
+            db.session.commit()
+            flash(f'Password changed successfully for {user.username}', 'success')
+            return redirect(referrer)
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            app.logger.error(f"Database error: {str(e)}")
+            flash('An error occurred while changing the password.', 'danger')
+    
+    return render_template('admin/change_password.html', form=form, user=user, referrer=referrer)
+
+@app.route('/admin/project/<int:project_id>/users')
+@login_required
+@admin_required
+def manage_project_users(project_id):
+    project = Project.query.get_or_404(project_id)
+    
+    # Ensure the current admin created this project
+    if project.creator_id != current_user.id:
+        flash('You can only manage users for projects you created.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+    
+    # Get only users relevant to this project
+    project_users = []
+    if project.owner:
+        project_users.append(project.owner)
+    if project.contractor:
+        project_users.append(project.contractor)
+    
+    return render_template('admin/project_users.html', project=project, users=project_users)
 
 @app.route('/admin/project/<int:project_id>')
 @login_required
@@ -799,17 +885,17 @@ def analyze_records(project_id):
                         role_risks = []
                         for chunk in chunks:
                             risks = analyze_contract_risks(chunk, role)
-                            for risk_data in risks:
-                                risk = Risk(
+                        for risk_data in risks:
+                            risk = Risk(
                                     document_id=doc_id,
-                                    project_id=project_id,
+                                project_id=project_id,
                                     clause_text=risk_data['clause_text'][:500],
-                                    risk_category=risk_data['risk_category'],
-                                    risk_score=risk_data['risk_score'],
-                                    explanation=risk_data['explanation'],
-                                    user_role=role
-                                )
-                                role_risks.append(risk)
+                                risk_category=risk_data['risk_category'],
+                                risk_score=risk_data['risk_score'],
+                                explanation=risk_data['explanation'],
+                                user_role=role  # Store risk for each role perspective
+                            )
+                            role_risks.append(risk)
                         return role_risks
                     
                     # Process roles in parallel
